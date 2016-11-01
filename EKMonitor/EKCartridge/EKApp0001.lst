@@ -1,0 +1,134 @@
+0001                         ;
+0002                         ;	Example of Application Cartridge for ReadBoard 6809
+0003                         ;	Created:	2012/09/04	Laurent68k
+0004                         ;	Updated:	2013/03/22
+0005                         ;
+0006                         ;
+0007                         ;	CCR:	7 6 5 4 3 2 1 0
+0008                         ;			E F H I N Z V C
+0009                         
+0010                         ;	----------------------------------------------------------------------------------------------------
+0011                         
+0012 8000                    RomCartidgeStart	equ		$8000
+0013 e000                    MonitorStart		equ		$E000
+0014                         ;	----------------------------------------------------------------------------------------------------
+0015                         ;	Offsets in ROM header
+0016 0002                    CPUCode				equ		2
+0017 0006                    Version				equ		6
+0018 0008                    Date				equ		8
+0019 000c                    OffTableRoutines	equ		12
+0020                         ;	----------------------------------------------------------------------------------------------------
+0021                         ;	Offsets of subroutines in functions's Monitor
+0022 0000                    PutChar				equ		0
+0023 0002                    PutHexChar			equ		PutChar+2
+0024 0004                    GetChar				equ		PutHexChar+2
+0025 0006                    GetCharUntil		equ		GetChar+2
+0026 0008                    WriteHexByte		equ		GetCharUntil+2
+0027 000a                    WriteBinByte		equ		WriteHexByte+2
+0028 000c                    WriteString			equ		WriteBinByte+2
+0029 000e                    ReadString			equ		WriteString+2
+0030 0010                    ReadHexFromString	equ		ReadString+2
+0031                         ;	----------------------------------------------------------------------------------------------------
+0032 8000                    					org		RomCartidgeStart		
+0033 8000 41 50              					fcc		"AP"							;	Applications Cartridge Header
+0034                         ;	----------------------------------------------------------------------------------------------------				
+0035 8002 80 61              CA_Next00:			fdb		CA_Next01
+0036 8004 80 16              					fdb		CARun00
+0037 8006 80 26              					fdb		CAInit00						;	Code to execute for init
+0038 8008 42 76              					fdb		%0100001001110110				;	2013/03/22
+0039 800a 78 00              					fdb		%0111100000000000				;	15h00:00
+0040 800c 50 72 6f 67 72 61  					fcc		"Program00\0"
+     6d 30 30 00
+0041                         					
+0042 8016 10 8e e0 00        CARun00:			ldy		#MonitorStart                   ;   find adr of functions table
+0043 801a 10 ae 2c                               ldy     OffTableRoutines,y              ;   Y = @ of functions table
+0044 801d 10 ae 2c                               ldy     WriteString,y                	;   add offset to point WriteString
+0045                         
+0046 8020 8e 80 3a           					ldx		#STRExample00					;	string to display
+0047 8023 ad a4              					jsr     0,y						
+0048                         
+0049 8025 39                 					rts
+0050                         
+0051 8026 34 30              CAInit00:			pshs    x,y
+0052                         
+0053 8028 10 8e e0 00                            ldy		#MonitorStart                   ;   find adr of functions table
+0054 802c 10 ae 2c                               ldy     OffTableRoutines,y              ;   Y = @ of functions table
+0055 802f 10 ae 2c                               ldy     WriteString,y                	;   add offset to point WriteString
+0056                         
+0057 8032 8e 80 4f           					ldx		#STRInit00						;	string to display
+0058 8035 ad a4              					jsr     0,y						
+0059                         
+0060 8037 35 30                                  puls    x,y
+0061                                             
+0062 8039 39                 					rts
+0063                         					
+0064 803a 50 72 6f 67 72 61  STRExample00		fcc     "Program 00 started\015\012\0"					
+     6d 20 30 30 20 73
+     74 61 72 74 65 64
+     0d 0a 00
+0065 804f 50 72 6f 67 72 61  STRInit00			fcc     "Program 00 init\015\012\0"	
+     6d 20 30 30 20 69
+     6e 69 74 0d 0a 00
+0066                         ;	----------------------------------------------------------------------------------------------------				
+0067 8061 80 9a              CA_Next01:			fdb		CA_Next02
+0068 8063 80 75              					fdb		CA_Run01
+0069 8065 00 00              					fdb		$0000							;	CA_Init null
+0070 8067 42 76              					fdb		%0100001001110110				;	2013/03/22
+0071 8069 79 e0              					fdb		%0111100111100000				;	15h15:00
+0072 806b 50 72 6f 67 72 61  					fcc		"Program01\0"
+     6d 30 31 00
+0073                         					
+0074 8075 10 8e e0 00        CA_Run01:			ldy		#MonitorStart
+0075 8079 10 ae 2c           					ldy     OffTableRoutines,y
+0076 807c 10 ae 2c                               ldy     WriteString,y                	;  add offset to point WriteString
+0077                         
+0078 807f 8e 80 85           					ldx		#STRExample01
+0079 8082 ad a4              					jsr     0,y
+0080                         					
+0081 8084 39                 					rts
+0082                         					
+0083 8085 50 72 6f 67 72 61  STRExample01		fcc     "Program 01 started\015\012\0"	
+     6d 20 30 31 20 73
+     74 61 72 74 65 64
+     0d 0a 00
+0084                         ;	----------------------------------------------------------------------------------------------------				
+0085 809a 00 00              CA_Next02:			fdb		$0000
+0086 809c 80 ae              					fdb		CA_Run02
+0087 809e 80 be              					fdb		CA_Init02						;	Code to execute for init
+0088 80a0 42 76              					fdb		%0100001001110110				;	2013/03/22
+0089 80a2 7b c0              					fdb		%0111101111000000				;	15h15:00
+0090 80a4 50 72 6f 67 72 61  					fcc		"Program01\0"
+     6d 30 31 00
+0091                         					
+0092 80ae 10 8e e0 00        CA_Run02:			ldy		#MonitorStart
+0093 80b2 10 ae 2c           					ldy     OffTableRoutines,y
+0094 80b5 10 ae 2c                               ldy     WriteString,y                	;  add offset to point WriteString
+0095                         
+0096 80b8 8e 80 85           					ldx		#STRExample01
+0097 80bb ad a4              					jsr     0,y
+0098                         					
+0099 80bd 39                 					rts
+0100                         
+0101 80be 34 30              CA_Init02:			pshs    x,y
+0102                         
+0103 80c0 10 8e e0 00                            ldy		#MonitorStart
+0104 80c4 10 ae 2c           					ldy     OffTableRoutines,y
+0105 80c7 10 ae 2c                               ldy     WriteString,y                	;  add offset to point WriteString
+0106                         
+0107 80ca 8e 80 e7           					ldx		#STRInit02
+0108 80cd ad a4              					jsr     0,y
+0109                         
+0110 80cf 35 30                                  puls    x,y
+0111                                             
+0112 80d1 39                 					rts
+0113                         					
+0114 80d2 50 72 6f 67 72 61  STRExample02		fcc     "Program 02 started\015\012\0"	
+     6d 20 30 32 20 73
+     74 61 72 74 65 64
+     0d 0a 00
+0115 80e7 50 72 6f 67 72 61  STRInit02			fcc     "Program 02 init\015\012\0"	
+     6d 20 30 32 20 69
+     6e 69 74 0d 0a 00
+0116                         ;	----------------------------------------------------------------------------------------------------				
+0117                         
+0118                         				

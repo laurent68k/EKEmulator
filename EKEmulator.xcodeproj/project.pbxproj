@@ -1,0 +1,480 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		4DC0B10016370E7F00672171 /* GUIMemoryInspectorController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DC0B0FF16370E7F00672171 /* GUIMemoryInspectorController.m */; };
+		4DC0B1041637110000672171 /* MemoryInspector.xib in Resources */ = {isa = PBXBuildFile; fileRef = 4DC0B1021637110000672171 /* MemoryInspector.xib */; };
+		4DC5291715F3387B00EFA520 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4DC5291615F3387B00EFA520 /* Cocoa.framework */; };
+		4DC5292115F3387B00EFA520 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 4DC5291F15F3387B00EFA520 /* InfoPlist.strings */; };
+		4DC5292315F3387B00EFA520 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DC5292215F3387B00EFA520 /* main.m */; };
+		4DC5292715F3387B00EFA520 /* Credits.rtf in Resources */ = {isa = PBXBuildFile; fileRef = 4DC5292515F3387B00EFA520 /* Credits.rtf */; };
+		4DC5292A15F3387B00EFA520 /* EKAppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DC5292915F3387B00EFA520 /* EKAppDelegate.m */; };
+		4DC5292D15F3387B00EFA520 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 4DC5292B15F3387B00EFA520 /* MainMenu.xib */; };
+		4DC5294015F338E700EFA520 /* EKCircuit.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DC5293915F338E700EFA520 /* EKCircuit.m */; };
+		4DC5294115F338E700EFA520 /* EKRam8bits.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DC5293B15F338E700EFA520 /* EKRam8bits.m */; };
+		4DC5294215F338E700EFA520 /* EKRom8bits.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DC5293D15F338E700EFA520 /* EKRom8bits.m */; };
+		4DC5294915F3390200EFA520 /* EK6502Processor.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DC5294415F3390200EFA520 /* EK6502Processor.m */; };
+		4DC5294A15F3390200EFA520 /* EK6809Processor.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DC5294615F3390200EFA520 /* EK6809Processor.m */; };
+		4DC5294B15F3390200EFA520 /* EKCoreProcessor.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DC5294815F3390200EFA520 /* EKCoreProcessor.m */; };
+		4DC5294E15F3391000EFA520 /* EKAddressDecoder.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DC5294D15F3391000EFA520 /* EKAddressDecoder.m */; };
+		4DC5295415F33CDC00EFA520 /* Computer6809.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DC5295115F33CDC00EFA520 /* Computer6809.m */; };
+		4DC5295915F33FBA00EFA520 /* GUIWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DC5295815F33FBA00EFA520 /* GUIWindowController.m */; };
+		4DC5295C15F3435500EFA520 /* EK6850.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DC5295B15F3435500EFA520 /* EK6850.m */; };
+		4DD22B21165EA71600F3897B /* CPU6809.xib in Resources */ = {isa = PBXBuildFile; fileRef = 4DD22B1F165EA71600F3897B /* CPU6809.xib */; };
+		4DD22B25165EA72300F3897B /* GUI6809CPUController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DD22B24165EA72300F3897B /* GUI6809CPUController.m */; };
+		4DD32572160F0C0A007EC5DD /* EK6821.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DD32571160F0C0A007EC5DD /* EK6821.m */; };
+		4DD4223416541F10005D8F5E /* EKTextFieldTerminal.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DD4223316541F10005D8F5E /* EKTextFieldTerminal.m */; };
+		4DD78864160392E1009894CB /* EKInterrupts.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DD78863160392E1009894CB /* EKInterrupts.m */; };
+		4DD9867116F3A3A70034FE2A /* EK6809Monitor.bin in Resources */ = {isa = PBXBuildFile; fileRef = 4DD9867016F3A3A70034FE2A /* EK6809Monitor.bin */; };
+		4DDAD6231669367C00764C1B /* EKApp0001.bin in Resources */ = {isa = PBXBuildFile; fileRef = 4DDAD6211669367C00764C1B /* EKApp0001.bin */; };
+		4DDAD6241669367C00764C1B /* ExBasRom.bin in Resources */ = {isa = PBXBuildFile; fileRef = 4DDAD6221669367C00764C1B /* ExBasRom.bin */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		4D8BEE91173247AD002097E2 /* EKEmulator.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = EKEmulator.entitlements; sourceTree = "<group>"; };
+		4DC0B0FE16370E7F00672171 /* GUIMemoryInspectorController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GUIMemoryInspectorController.h; sourceTree = "<group>"; };
+		4DC0B0FF16370E7F00672171 /* GUIMemoryInspectorController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GUIMemoryInspectorController.m; sourceTree = "<group>"; };
+		4DC0B1031637110000672171 /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/MemoryInspector.xib; sourceTree = "<group>"; };
+		4DC5291215F3387B00EFA520 /* EKEmulator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EKEmulator.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4DC5291615F3387B00EFA520 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
+		4DC5291915F3387B00EFA520 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
+		4DC5291A15F3387B00EFA520 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
+		4DC5291B15F3387B00EFA520 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		4DC5291E15F3387B00EFA520 /* EKEmulator-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "EKEmulator-Info.plist"; sourceTree = "<group>"; };
+		4DC5292015F3387B00EFA520 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		4DC5292215F3387B00EFA520 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		4DC5292415F3387B00EFA520 /* EKEmulator-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "EKEmulator-Prefix.pch"; sourceTree = "<group>"; };
+		4DC5292615F3387B00EFA520 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; name = en; path = en.lproj/Credits.rtf; sourceTree = "<group>"; };
+		4DC5292815F3387B00EFA520 /* EKAppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EKAppDelegate.h; sourceTree = "<group>"; };
+		4DC5292915F3387B00EFA520 /* EKAppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EKAppDelegate.m; sourceTree = "<group>"; };
+		4DC5292C15F3387B00EFA520 /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/MainMenu.xib; sourceTree = "<group>"; };
+		4DC5293515F338E700EFA520 /* Constants.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Constants.h; sourceTree = "<group>"; };
+		4DC5293815F338E700EFA520 /* EKCircuit.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EKCircuit.h; sourceTree = "<group>"; };
+		4DC5293915F338E700EFA520 /* EKCircuit.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EKCircuit.m; sourceTree = "<group>"; };
+		4DC5293A15F338E700EFA520 /* EKRam8bits.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EKRam8bits.h; sourceTree = "<group>"; };
+		4DC5293B15F338E700EFA520 /* EKRam8bits.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EKRam8bits.m; sourceTree = "<group>"; };
+		4DC5293C15F338E700EFA520 /* EKRom8bits.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EKRom8bits.h; sourceTree = "<group>"; };
+		4DC5293D15F338E700EFA520 /* EKRom8bits.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EKRom8bits.m; sourceTree = "<group>"; };
+		4DC5294315F3390200EFA520 /* EK6502Processor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EK6502Processor.h; sourceTree = "<group>"; };
+		4DC5294415F3390200EFA520 /* EK6502Processor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EK6502Processor.m; sourceTree = "<group>"; };
+		4DC5294515F3390200EFA520 /* EK6809Processor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EK6809Processor.h; sourceTree = "<group>"; };
+		4DC5294615F3390200EFA520 /* EK6809Processor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EK6809Processor.m; sourceTree = "<group>"; };
+		4DC5294715F3390200EFA520 /* EKCoreProcessor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EKCoreProcessor.h; sourceTree = "<group>"; };
+		4DC5294815F3390200EFA520 /* EKCoreProcessor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EKCoreProcessor.m; sourceTree = "<group>"; };
+		4DC5294C15F3391000EFA520 /* EKAddressDecoder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EKAddressDecoder.h; sourceTree = "<group>"; };
+		4DC5294D15F3391000EFA520 /* EKAddressDecoder.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EKAddressDecoder.m; sourceTree = "<group>"; };
+		4DC5295015F33CDC00EFA520 /* Computer6809.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Computer6809.h; sourceTree = "<group>"; };
+		4DC5295115F33CDC00EFA520 /* Computer6809.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Computer6809.m; sourceTree = "<group>"; };
+		4DC5295715F33FBA00EFA520 /* GUIWindowController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GUIWindowController.h; sourceTree = "<group>"; };
+		4DC5295815F33FBA00EFA520 /* GUIWindowController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GUIWindowController.m; sourceTree = "<group>"; };
+		4DC5295A15F3435500EFA520 /* EK6850.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EK6850.h; sourceTree = "<group>"; };
+		4DC5295B15F3435500EFA520 /* EK6850.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EK6850.m; sourceTree = "<group>"; };
+		4DD22B20165EA71600F3897B /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/CPU6809.xib; sourceTree = "<group>"; };
+		4DD22B23165EA72300F3897B /* GUI6809CPUController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GUI6809CPUController.h; sourceTree = "<group>"; };
+		4DD22B24165EA72300F3897B /* GUI6809CPUController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GUI6809CPUController.m; sourceTree = "<group>"; };
+		4DD32570160F0C0A007EC5DD /* EK6821.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EK6821.h; sourceTree = "<group>"; };
+		4DD32571160F0C0A007EC5DD /* EK6821.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EK6821.m; sourceTree = "<group>"; };
+		4DD4223216541F10005D8F5E /* EKTextFieldTerminal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EKTextFieldTerminal.h; sourceTree = "<group>"; };
+		4DD4223316541F10005D8F5E /* EKTextFieldTerminal.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EKTextFieldTerminal.m; sourceTree = "<group>"; };
+		4DD78862160392E1009894CB /* EKInterrupts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EKInterrupts.h; sourceTree = "<group>"; };
+		4DD78863160392E1009894CB /* EKInterrupts.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EKInterrupts.m; sourceTree = "<group>"; };
+		4DD9867016F3A3A70034FE2A /* EK6809Monitor.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = EK6809Monitor.bin; sourceTree = "<group>"; };
+		4DDAD6211669367C00764C1B /* EKApp0001.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = EKApp0001.bin; sourceTree = "<group>"; };
+		4DDAD6221669367C00764C1B /* ExBasRom.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = ExBasRom.bin; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4DC5290F15F3387B00EFA520 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4DC5291715F3387B00EFA520 /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		4D7911211637137B0063ECD6 /* xib */ = {
+			isa = PBXGroup;
+			children = (
+				4DD22B1F165EA71600F3897B /* CPU6809.xib */,
+				4DC0B1021637110000672171 /* MemoryInspector.xib */,
+				4DC5292B15F3387B00EFA520 /* MainMenu.xib */,
+			);
+			name = xib;
+			sourceTree = "<group>";
+		};
+		4DC5290715F3387B00EFA520 = {
+			isa = PBXGroup;
+			children = (
+				4DC5291C15F3387B00EFA520 /* EKEmulator */,
+				4DC5291515F3387B00EFA520 /* Frameworks */,
+				4DC5291315F3387B00EFA520 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4DC5291315F3387B00EFA520 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4DC5291215F3387B00EFA520 /* EKEmulator.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4DC5291515F3387B00EFA520 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4DC5291615F3387B00EFA520 /* Cocoa.framework */,
+				4DC5291815F3387B00EFA520 /* Other Frameworks */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		4DC5291815F3387B00EFA520 /* Other Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4DC5291915F3387B00EFA520 /* AppKit.framework */,
+				4DC5291A15F3387B00EFA520 /* CoreData.framework */,
+				4DC5291B15F3387B00EFA520 /* Foundation.framework */,
+			);
+			name = "Other Frameworks";
+			sourceTree = "<group>";
+		};
+		4DC5291C15F3387B00EFA520 /* EKEmulator */ = {
+			isa = PBXGroup;
+			children = (
+				4D8BEE91173247AD002097E2 /* EKEmulator.entitlements */,
+				4D7911211637137B0063ECD6 /* xib */,
+				4DCF360915F68B3900D06D72 /* Monitors */,
+				4DC5295615F33F5D00EFA520 /* GUI */,
+				4DC5294F15F33CC600EFA520 /* Computers */,
+				4DC5293415F338B100EFA520 /* Devices */,
+				4DC5293315F338A100EFA520 /* Processors */,
+				4DC5292815F3387B00EFA520 /* EKAppDelegate.h */,
+				4DC5292915F3387B00EFA520 /* EKAppDelegate.m */,
+				4DC5291D15F3387B00EFA520 /* Supporting Files */,
+			);
+			path = EKEmulator;
+			sourceTree = "<group>";
+		};
+		4DC5291D15F3387B00EFA520 /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				4DC5291E15F3387B00EFA520 /* EKEmulator-Info.plist */,
+				4DC5291F15F3387B00EFA520 /* InfoPlist.strings */,
+				4DC5292215F3387B00EFA520 /* main.m */,
+				4DC5292415F3387B00EFA520 /* EKEmulator-Prefix.pch */,
+				4DC5292515F3387B00EFA520 /* Credits.rtf */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+		4DC5293315F338A100EFA520 /* Processors */ = {
+			isa = PBXGroup;
+			children = (
+				4DD78862160392E1009894CB /* EKInterrupts.h */,
+				4DD78863160392E1009894CB /* EKInterrupts.m */,
+				4DC5294315F3390200EFA520 /* EK6502Processor.h */,
+				4DC5294415F3390200EFA520 /* EK6502Processor.m */,
+				4DC5294515F3390200EFA520 /* EK6809Processor.h */,
+				4DC5294615F3390200EFA520 /* EK6809Processor.m */,
+				4DC5294715F3390200EFA520 /* EKCoreProcessor.h */,
+				4DC5294815F3390200EFA520 /* EKCoreProcessor.m */,
+			);
+			name = Processors;
+			sourceTree = "<group>";
+		};
+		4DC5293415F338B100EFA520 /* Devices */ = {
+			isa = PBXGroup;
+			children = (
+				4DD32570160F0C0A007EC5DD /* EK6821.h */,
+				4DD32571160F0C0A007EC5DD /* EK6821.m */,
+				4DC5295A15F3435500EFA520 /* EK6850.h */,
+				4DC5295B15F3435500EFA520 /* EK6850.m */,
+				4DC5294C15F3391000EFA520 /* EKAddressDecoder.h */,
+				4DC5294D15F3391000EFA520 /* EKAddressDecoder.m */,
+				4DC5293515F338E700EFA520 /* Constants.h */,
+				4DC5293815F338E700EFA520 /* EKCircuit.h */,
+				4DC5293915F338E700EFA520 /* EKCircuit.m */,
+				4DC5293A15F338E700EFA520 /* EKRam8bits.h */,
+				4DC5293B15F338E700EFA520 /* EKRam8bits.m */,
+				4DC5293C15F338E700EFA520 /* EKRom8bits.h */,
+				4DC5293D15F338E700EFA520 /* EKRom8bits.m */,
+			);
+			name = Devices;
+			sourceTree = "<group>";
+		};
+		4DC5294F15F33CC600EFA520 /* Computers */ = {
+			isa = PBXGroup;
+			children = (
+				4DC5295015F33CDC00EFA520 /* Computer6809.h */,
+				4DC5295115F33CDC00EFA520 /* Computer6809.m */,
+			);
+			name = Computers;
+			sourceTree = "<group>";
+		};
+		4DC5295615F33F5D00EFA520 /* GUI */ = {
+			isa = PBXGroup;
+			children = (
+				4DD22B23165EA72300F3897B /* GUI6809CPUController.h */,
+				4DD22B24165EA72300F3897B /* GUI6809CPUController.m */,
+				4DD4223216541F10005D8F5E /* EKTextFieldTerminal.h */,
+				4DD4223316541F10005D8F5E /* EKTextFieldTerminal.m */,
+				4DC0B0FE16370E7F00672171 /* GUIMemoryInspectorController.h */,
+				4DC0B0FF16370E7F00672171 /* GUIMemoryInspectorController.m */,
+				4DC5295715F33FBA00EFA520 /* GUIWindowController.h */,
+				4DC5295815F33FBA00EFA520 /* GUIWindowController.m */,
+			);
+			name = GUI;
+			sourceTree = "<group>";
+		};
+		4DCF360915F68B3900D06D72 /* Monitors */ = {
+			isa = PBXGroup;
+			children = (
+				4DD9867016F3A3A70034FE2A /* EK6809Monitor.bin */,
+				4DDAD6211669367C00764C1B /* EKApp0001.bin */,
+				4DDAD6221669367C00764C1B /* ExBasRom.bin */,
+			);
+			name = Monitors;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		4DC5291115F3387B00EFA520 /* EKEmulator */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4DC5293015F3387B00EFA520 /* Build configuration list for PBXNativeTarget "EKEmulator" */;
+			buildPhases = (
+				4DC5290E15F3387B00EFA520 /* Sources */,
+				4DC5290F15F3387B00EFA520 /* Frameworks */,
+				4DC5291015F3387B00EFA520 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = EKEmulator;
+			productName = EKEmulator;
+			productReference = 4DC5291215F3387B00EFA520 /* EKEmulator.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4DC5290915F3387B00EFA520 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				CLASSPREFIX = EK;
+				LastUpgradeCheck = 0440;
+				ORGANIZATIONNAME = Laurent;
+			};
+			buildConfigurationList = 4DC5290C15F3387B00EFA520 /* Build configuration list for PBXProject "EKEmulator" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 4DC5290715F3387B00EFA520;
+			productRefGroup = 4DC5291315F3387B00EFA520 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4DC5291115F3387B00EFA520 /* EKEmulator */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		4DC5291015F3387B00EFA520 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4DC5292115F3387B00EFA520 /* InfoPlist.strings in Resources */,
+				4DC5292715F3387B00EFA520 /* Credits.rtf in Resources */,
+				4DC5292D15F3387B00EFA520 /* MainMenu.xib in Resources */,
+				4DC0B1041637110000672171 /* MemoryInspector.xib in Resources */,
+				4DD22B21165EA71600F3897B /* CPU6809.xib in Resources */,
+				4DDAD6231669367C00764C1B /* EKApp0001.bin in Resources */,
+				4DDAD6241669367C00764C1B /* ExBasRom.bin in Resources */,
+				4DD9867116F3A3A70034FE2A /* EK6809Monitor.bin in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4DC5290E15F3387B00EFA520 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4DC5292315F3387B00EFA520 /* main.m in Sources */,
+				4DC5292A15F3387B00EFA520 /* EKAppDelegate.m in Sources */,
+				4DC5294015F338E700EFA520 /* EKCircuit.m in Sources */,
+				4DC5294115F338E700EFA520 /* EKRam8bits.m in Sources */,
+				4DC5294215F338E700EFA520 /* EKRom8bits.m in Sources */,
+				4DC5294915F3390200EFA520 /* EK6502Processor.m in Sources */,
+				4DC5294A15F3390200EFA520 /* EK6809Processor.m in Sources */,
+				4DC5294B15F3390200EFA520 /* EKCoreProcessor.m in Sources */,
+				4DC5294E15F3391000EFA520 /* EKAddressDecoder.m in Sources */,
+				4DC5295415F33CDC00EFA520 /* Computer6809.m in Sources */,
+				4DC5295915F33FBA00EFA520 /* GUIWindowController.m in Sources */,
+				4DC5295C15F3435500EFA520 /* EK6850.m in Sources */,
+				4DD78864160392E1009894CB /* EKInterrupts.m in Sources */,
+				4DD32572160F0C0A007EC5DD /* EK6821.m in Sources */,
+				4DC0B10016370E7F00672171 /* GUIMemoryInspectorController.m in Sources */,
+				4DD4223416541F10005D8F5E /* EKTextFieldTerminal.m in Sources */,
+				4DD22B25165EA72300F3897B /* GUI6809CPUController.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		4DC0B1021637110000672171 /* MemoryInspector.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				4DC0B1031637110000672171 /* en */,
+			);
+			name = MemoryInspector.xib;
+			sourceTree = "<group>";
+		};
+		4DC5291F15F3387B00EFA520 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				4DC5292015F3387B00EFA520 /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		4DC5292515F3387B00EFA520 /* Credits.rtf */ = {
+			isa = PBXVariantGroup;
+			children = (
+				4DC5292615F3387B00EFA520 /* en */,
+			);
+			name = Credits.rtf;
+			sourceTree = "<group>";
+		};
+		4DC5292B15F3387B00EFA520 /* MainMenu.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				4DC5292C15F3387B00EFA520 /* en */,
+			);
+			name = MainMenu.xib;
+			sourceTree = "<group>";
+		};
+		4DD22B1F165EA71600F3897B /* CPU6809.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				4DD22B20165EA71600F3897B /* en */,
+			);
+			name = CPU6809.xib;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		4DC5292E15F3387B00EFA520 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx10.12;
+			};
+			name = Debug;
+		};
+		4DC5292F15F3387B00EFA520 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				SDKROOT = macosx10.12;
+			};
+			name = Release;
+		};
+		4DC5293115F3387B00EFA520 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "EKEmulator/EKEmulator-Prefix.pch";
+				INFOPLIST_FILE = "EKEmulator/EKEmulator-Info.plist";
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = app;
+			};
+			name = Debug;
+		};
+		4DC5293215F3387B00EFA520 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "EKEmulator/EKEmulator-Prefix.pch";
+				INFOPLIST_FILE = "EKEmulator/EKEmulator-Info.plist";
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = app;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4DC5290C15F3387B00EFA520 /* Build configuration list for PBXProject "EKEmulator" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4DC5292E15F3387B00EFA520 /* Debug */,
+				4DC5292F15F3387B00EFA520 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4DC5293015F3387B00EFA520 /* Build configuration list for PBXNativeTarget "EKEmulator" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4DC5293115F3387B00EFA520 /* Debug */,
+				4DC5293215F3387B00EFA520 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4DC5290915F3387B00EFA520 /* Project object */;
+}

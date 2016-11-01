@@ -1,0 +1,114 @@
+0001                         ;
+0002                         ;	6809 Boot Code Test 2 for ReadBoard 6809 
+0003                         ;	Created:	2012/01/18	Laurent68k
+0004                         ;	Updated:	2013/01/18
+0005                         ;
+0006                         ;	Send an 'A' on the console forever
+0007                         ;
+0008                         ;	CCR:	7 6 5 4 3 2 1 0
+0009                         ;			E F H I N Z V C
+0010                         ;
+0011                         ;	Change log:
+0012                         ;
+0013                         ;	----------------------------------------------------------------------------------------------------
+0014                         
+0015                         ;	----------------------------------------------------------------------------------------------------
+0016 0000                    RamStart			equ	$0000
+0017 7fff                    RamEnd				equ	$7FFF
+0018 8000                    Cartridge           equ $8000
+0019 e000                    RomStart			equ	$E000
+0020 ffff                    RomEnd				equ	$FFFF
+0021 fff0                    ROMVectors			equ	$FFF0
+0022                         ;	----------------------------------------------------------------------------------------------------
+0023 d000                    Uart				equ	$D000
+0024 d001                    UartTDR				equ Uart+1
+0025 d001                    UartRDR				equ Uart+1
+0026                         ;	----------------------------------------------------------------------------------------------------
+0027 d004                    Pia					equ	$D004
+0028 d004                    PiaDDRA				equ	Pia
+0029 d004                    PiaORA				equ	Pia
+0030 d005                    PiaCRA				equ	Pia+1
+0031 d006                    PiaDDRB				equ	Pia+2
+0032 d006                    PiaORB				equ	Pia+2
+0033 d007                    PiaCRB				equ	Pia+3
+0034 0000                    PIA_INPUTS			equ	$00
+0035 00ff                    PIA_OUTUTS			equ	$FF
+0036                         ;	----------------------------------------------------------------------------------------------------
+0037                         ;	Start of Boot Code ROM
+0038                         
+0039 e000                    					org		RomStart					
+0040                         								
+0041 e000 1a 50              BootCode:           orcc    #$50
+0042 e002 10 ce 01 00        					lds		#$100
+0043 e006 ce 01 00           					ldu		#$100
+0044                         
+0045                         					;	Init Uart for format 8N1, using E = 7.3728 Mhz  => 7372800 / 64 = 115200 bps
+0046 e009 86 03              					lda		#$03						;	ACIA master reset
+0047 e00b b7 d0 00           					sta		Uart
+0048                         
+0049 e00e 86 16              					lda		#%00010110                  ;   %0001 0110
+0050 e010 b7 d0 00           					sta		Uart
+0051                                             
+0052                         					;	Init PIA
+0053 e013 86 fb              					lda		#%11111011					;	clear bit DDR to access to DDR register
+0054 e015 b4 d0 05           					anda	PiaCRA
+0055 e018 b7 d0 05           					sta		PiaCRA
+0056                         					
+0057 e01b 86 00              					lda		#PIA_INPUTS					;	pins are input
+0058 e01d b7 d0 04           					sta		PiaDDRA						;	set Direction register
+0059                         										
+0060 e020 86 04                                  lda		#%00000100					;	Set the DDR bit to enable next access to Data Register
+0061 e022 ba d0 05           					ora		PiaCRA
+0062 e025 b7 d0 05           					sta		PiaCRA			
+0063                         
+0064 e028 86 aa              Loop:               lda		#%10101010
+0065 e02a b7 d0 04           					sta		PiaORA
+0066                         
+0067 e02d 12                 					nop
+0068 e02e 12                 					nop
+0069 e02f 12                 					nop
+0070 e030 12                 					nop
+0071 e031 12                 					nop
+0072 e032 12                 					nop
+0073 e033 12                 					nop
+0074 e034 12                 					nop
+0075 e035 12                 					nop
+0076 e036 12                 					nop
+0077 e037 12                 					nop
+0078 e038 12                 					nop
+0079                         					
+0080 e039 86 41              					lda     #'A'
+0081 e03b b7 d0 01           					sta		UartTDR
+0082                                             
+0083 e03e 86 55              					lda		#%01010101
+0084 e040 b7 d0 04           					sta		PiaORA
+0085                         					
+0086 e043 20 e3              					bra		Loop
+0087                         					
+0088                         ;	----------------------------------------------------------------------------------------------------
+0089                         
+0090 e045 3b                 Vector:             rti
+0091                         
+0092 e046 4c 41 55 52 45 4e  marque:				fcc "LAURENT BOOTCODE TEST #2, 20130222"
+     54 20 42 4f 4f 54
+     43 4f 44 45 20 54
+     45 53 54 20 23 32
+     2c 20 32 30 31 33
+     30 32 32 32
+0093                         ;	----------------------------------------------------------------------------------------------------
+0094 e068                    					spaceto ROMVectors				; special LFD directive: fill from last PC = * to here 
+0095 fff0                    					org	ROMVectors
+0096                         
+0097                         Vectors:			
+0098 fff0 e0 45              					fdb	Vector		
+0099 fff2 e0 45              					fdb	Vector
+0100 fff4 e0 45              					fdb	Vector
+0101 fff6 e0 45              					fdb	Vector
+0102 fff8 e0 45              					fdb	Vector
+0103 fffa e0 45              					fdb	Vector
+0104 fffc e0 45              					fdb	Vector
+0105 fffe e0 00              					fdb	RomStart            
+0106                         
+0107                         					end
+0108                         ;	----------------------------------------------------------------------------------------------------
+0109                         

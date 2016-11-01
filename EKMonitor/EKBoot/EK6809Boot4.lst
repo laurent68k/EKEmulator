@@ -1,0 +1,155 @@
+0001                         ;
+0002                         ;	6809 Boot Code for ReadBoard 6809 
+0003                         ;	Created:	2012/02/24	Laurent68k
+0004                         ;	Updated:	2013/02/24
+0005                         ;
+0006                         ;   print "Hello" text on the remote console with status bit test and wait for a char to echo it for ever.
+0007                         ;
+0008                         ;	CCR:	7 6 5 4 3 2 1 0
+0009                         ;			E F H I N Z V C
+0010                         ;
+0011                         ;	Change log:
+0012                         ;
+0013                         ;	----------------------------------------------------------------------------------------------------
+0014                         
+0015                         ;	----------------------------------------------------------------------------------------------------
+0016 0000                    RamStart			equ	$0000
+0017 7fff                    RamEnd				equ	$7FFF
+0018 8000                    Cartridge           equ $8000
+0019 e000                    RomStart			equ	$E000
+0020 ffff                    RomEnd				equ	$FFFF
+0021 fff0                    ROMVectors			equ	$FFF0
+0022                         ;	----------------------------------------------------------------------------------------------------
+0023 d000                    Uart				equ	$D000
+0024 d001                    UartTDR				equ Uart+1
+0025 d001                    UartRDR				equ Uart+1
+0026                         ;	----------------------------------------------------------------------------------------------------
+0027                         ;	Start of Boot Code ROM
+0028                         
+0029 e000                    					org		RomStart					
+0030                         								
+0031                         BootCode:	
+0032 e000 10 ce 01 00        					lds		#$100
+0033 e004 ce 01 00           					ldu		#$100
+0034                         
+0035                         					;	CMOS 4060 has a crystal of 2457600 Hz => Q4: 2457600/16=153600 so need 153600/16=9600
+0036                         					
+0037 e007 86 03              					lda		#$03						;	ACIA master reset
+0038 e009 b7 d0 00           					sta		Uart
+0039                         					
+0040 e00c 86 15              					lda		#%00010101                  ;   %0001 0110 => 8N1, div by 16					
+0041 e00e b7 d0 00                               sta		Uart
+0042                         
+0043                         
+0044                         ;	Print "Hello" text on the remote console with 					
+0045 e011 b6 d0 00           _PutChar1:			lda		Uart
+0046 e014 85 02              					bita	#$02
+0047 e016 27 f9              					beq		_PutChar1
+0048                         					
+0049 e018 86 48              					lda		#'H'
+0050 e01a b7 d0 01           					sta		UartTDR
+0051                         					
+0052 e01d b6 d0 00           _PutChar2:			lda		Uart
+0053 e020 85 02              					bita	#$02
+0054 e022 27 f9              					beq		_PutChar2
+0055                         					
+0056 e024 86 65              					lda		#'e'
+0057 e026 b7 d0 01           					sta		UartTDR
+0058                         
+0059 e029 b6 d0 00           _PutChar3:			lda		Uart
+0060 e02c 85 02              					bita	#$02
+0061 e02e 27 f9              					beq		_PutChar3
+0062                         					
+0063 e030 86 6c              					lda		#'l'
+0064 e032 b7 d0 01           					sta		UartTDR
+0065                         
+0066 e035 b6 d0 00           _PutChar4:			lda		Uart
+0067 e038 85 02              					bita	#$02
+0068 e03a 27 f9              					beq		_PutChar4
+0069                         					
+0070 e03c 86 6c              					lda		#'l'
+0071 e03e b7 d0 01           					sta		UartTDR
+0072                         					
+0073 e041 b6 d0 00           _PutChar5:			lda		Uart
+0074 e044 85 02              					bita	#$02
+0075 e046 27 f9              					beq		_PutChar5
+0076                         					
+0077 e048 86 6f              					lda		#'o'
+0078 e04a b7 d0 01           					sta		UartTDR					
+0079                         					
+0080 e04d b6 d0 00           _PutChar6:			lda		Uart
+0081 e050 85 02              					bita	#$02
+0082 e052 27 f9              					beq		_PutChar6
+0083                         					
+0084 e054 86 0a              					lda		#$0A
+0085 e056 b7 d0 01           					sta		UartTDR	
+0086                         
+0087                         				
+0088                         ;	Test RAM				
+0089                         
+0090 e059 8e 00 00           					ldx		#$0000
+0091 e05c 86 aa              					lda		#$AA
+0092 e05e a7 84              					sta		0,x
+0093 e060 a6 84              					lda		0,x
+0094 e062 81 aa              					cmpa	#$AA
+0095 e064 26 0e              					bne		failed
+0096                         
+0097 e066 b6 d0 00           _PutChar8:			lda		Uart
+0098 e069 85 02              					bita	#$02
+0099 e06b 27 f9              					beq		_PutChar8
+0100                         					
+0101 e06d 86 4b              					lda		#'K'
+0102 e06f b7 d0 01           					sta		UartTDR	
+0103                         					
+0104 e072 20 0c              					bra		GetChar
+0105                         
+0106 e074 b6 d0 00           failed:				lda		Uart
+0107 e077 85 02              					bita	#$02
+0108 e079 27 f9              					beq		failed
+0109                         					
+0110 e07b 86 46              					lda		#'F'
+0111 e07d b7 d0 01           					sta		UartTDR	
+0112                         					
+0113                         					
+0114                         ;	Main loop
+0115 e080 b6 d0 00           GetChar:			lda		Uart
+0116 e083 85 01              					bita	#$01
+0117 e085 27 f9              					beq		GetChar
+0118                         					
+0119 e087 b6 d0 01                               lda		UartRDR                 ;   read the char
+0120 e08a 1f 89              					tfr		a,b
+0121                         					
+0122 e08c b6 d0 00           _PutChar20:			lda		Uart
+0123 e08f 85 02              					bita	#$02
+0124 e091 27 f9              					beq		_PutChar20
+0125                         					
+0126 e093 f7 d0 01           					stb		UartTDR	
+0127                         					
+0128 e096 20 e8              					bra		GetChar
+0129                         ;	----------------------------------------------------------------------------------------------------
+0130                         
+0131 e098 3b                 Vector:             rti
+0132                         
+0133 e099 4c 41 55 52 45 4e  marque:				fcc "LAURENT BOOTCODE TEST #4, 20130224"
+     54 20 42 4f 4f 54
+     43 4f 44 45 20 54
+     45 53 54 20 23 34
+     2c 20 32 30 31 33
+     30 32 32 34
+0134                         ;	----------------------------------------------------------------------------------------------------
+0135 e0bb                    					spaceto ROMVectors				; special LFD directive: fill from last PC = * to here 
+0136 fff0                    					org	ROMVectors
+0137                         
+0138                         Vectors:			
+0139 fff0 e0 98              					fdb	Vector		
+0140 fff2 e0 98              					fdb	Vector
+0141 fff4 e0 98              					fdb	Vector
+0142 fff6 e0 98              					fdb	Vector
+0143 fff8 e0 98              					fdb	Vector
+0144 fffa e0 98              					fdb	Vector
+0145 fffc e0 98              					fdb	Vector
+0146 fffe e0 00              					fdb	RomStart            
+0147                         
+0148                         					end
+0149                         ;	----------------------------------------------------------------------------------------------------
+0150                         

@@ -1,0 +1,3216 @@
+0001                         ;
+0002                         ;	Small Monitor EKMonitor for ReadBoard 6809 + tinyBasic embedded.
+0003                         ;
+0004                         ;	version:	1.3
+0005                         ;	Created:	2012 September 04	
+0006                         ;	Updated:	2015 February 27
+0007                         ;	Author:		Laurent Favard
+0008                         ;	Contact:	laurent68k@gmail.com
+0009                         ;
+0010                         ;	CCR:	7 6 5 4 3 2 1 0
+0011                         ;			E F H I N Z V C
+0012                         ;
+0013                         ;	This source code is free and can be used, copied, updated and modified for any hardware you want
+0014                         ;	wihtout restrictions.
+0015                         ;
+0016                         ;	Change log:
+0017                         ;	----------------------------------------------------------------------------------------------------
+0018                         ;	2015/02/27	-	Fix in SkipSpace about the bug found by SkipSpace "Roland Leurs". Thanks you!
+0019                         ;	----------------------------------------------------------------------------------------------------
+0020                         ;	2013/05/24	-   Added a tribute to the pioniers
+0021                         ;	----------------------------------------------------------------------------------------------------
+0022                         ;   2013/04/12	-	SECOND VERSION BURNED ! Monitor works fine
+0023                         ;				-	LOAD command ok
+0024                         ;				-	MEMSIZE with decimal memory display ok
+0025                         ;	----------------------------------------------------------------------------------------------------
+0026                         ;	2013/04/05	-   Fix in GetHexDigit
+0027                         ;	2013/03/29	-	Fix in WriteDecimal2D
+0028                         ;	2013/03/26	-	Added WriteDecimal2D to print a number with the digit
+0029                         ;	2013/03/25	-	Fix in WriteDecimalBytes, print at least one Zero.
+0030                         ;	2013/03/22	-	Added automatic execute of Application Cart. init code
+0031                         ;				-	Display the Application count in decimal 
+0032                         ;				-	Display the Date and Time in decimal
+0033                         ;				-	Display the memory size in decimal 
+0034                         ;				-	Display the monitor version in decimal as: '1.2'
+0035                         ;				-	display decimal routine ignore the firsts '0' on the left
+0036                         ;				-	CA_Init is now checked and executed while monitor booting 
+0037                         ;	2013/03/21	-	Added routine to display decimal values on the terminal
+0038                         ;				-	Added CA_Init field in APP header for extra init program. Not used.
+0039                         ;	2013/03/20	-	Added new Disgnostic cartridge, then Automatic moved before Application cart. checking
+0040                         ;				-	Added Date and Time of applications cartridge			
+0041                         ;	2013/03/18	-	Added GetHexDigit and LoadCodeSerial
+0042                         ;   2013/03/15	-	Removed CTRX on SETPIA
+0043                         ;				-	Added Dump command display now the letter on the terminal
+0044                         ;				-	Load command added without action
+0045                         ;	----------------------------------------------------------------------------------------------------
+0046                         ;   2013/02/24	-	FIRST VERSION BURNED ! The Board Works and tinyBasic too
+0047                         ;	----------------------------------------------------------------------------------------------------
+0048                         ;               -   Updated to peform a Master Reset on the 6850
+0049                         ;   2013/01/16	-	Updated to divide by 16 the clock of 6850
+0050                         ;	2013/01/12	-	Updated, uppercase all received characters from UART when between [a,z]
+0051                         ;	2013/01/05	-	Updated disable and reenable inerrupts
+0052                         ;               -   Bug fixed, PIA was set as out instead of In mode.
+0053                         ;	2012/12/19	-	Added init of UART, 8 bits 1 stop Parity None
+0054                         ;	2012/12/10	-	Added MEMSIZE
+0055                         ;				-	Added SETPIA CTRX: to finish
+0056                         ;				-	Using of DispatchCommands for the CLI
+0057                         ;	----------------------------------------------------------------------------------------------------
+0058                         ;	2012/09/04	-	Creation
+0059                         ;	----------------------------------------------------------------------------------------------------
+0060 0000                    RamStart			equ	$0000
+0061 7fff                    RamEnd				equ	$7FFF
+0062 8000                    Cartridge           equ $8000
+0063 e000                    RomStart			equ	$E000
+0064 ffff                    RomEnd				equ	$FFFF
+0065                         ;	----------------------------------------------------------------------------------------------------
+0066 d000                    Uart				equ	$D000
+0067 d001                    UartTDR				equ Uart+1
+0068 d001                    UartRDR				equ Uart+1
+0069                         ;	----------------------------------------------------------------------------------------------------
+0070 d004                    Pia					equ	$D004
+0071 d004                    PiaDDRA				equ	Pia
+0072 d004                    PiaORA				equ	Pia
+0073 d005                    PiaCRA				equ	Pia+1
+0074 d006                    PiaDDRB				equ	Pia+2
+0075 d006                    PiaORB				equ	Pia+2
+0076 d007                    PiaCRB				equ	Pia+3
+0077 0000                    PIA_INPUTS			equ	$00
+0078 00ff                    PIA_OUTUTS			equ	$FF
+0079                         ;	----------------------------------------------------------------------------------------------------
+0080 e006                    Major				equ	RomStart+$06
+0081 e007                    Minor				equ	RomStart+$07
+0082                         ;	----------------------------------------------------------------------------------------------------
+0083 8000                    MagicCartHigh		equ	Cartridge
+0084 8001                    MagicCartLow		equ	MagicCartHigh+1
+0085 8002                    AutoCartEntry		equ	MagicCartLow+1
+0086                         ;	----------------------------------------------------------------------------------------------------
+0087 0000                    CA_Next				equ	0
+0088 0002                    CA_Run				equ	CA_Next+2
+0089 0004                    CA_Init				equ	CA_Run+2
+0090 0006                    CA_Date				equ	CA_Init+2
+0091 0008                    CA_Time				equ	CA_Date+2
+0092 000a                    CA_Name				equ	CA_Time+2
+0093                         ;	CA_Time is as follows: (Like in Atari GEMDOS)
+0094                         ;unsigned hour		:5		MSb
+0095                         ;unsigned minute	:6
+0096                         ;unsigned second	:5		LSb		0-31 seconds
+0097                         ;	CA_Date is as follows: (Like in Atari GEMDOS)
+0098                         ;unsigned year		:7		MSb		offset from 1980
+0099                         ;unsigned month		:4
+0100                         ;unsigned day		:5		LSb
+0101                         ;	----------------------------------------------------------------------------------------------------
+0102 fff0                    ROMVectors			equ	$FFF0
+0103                         ;	----------------------------------------------------------------------------------------------------
+0104 0040                    STACK_SIZE_S		equ	64
+0105 0040                    STACK_SIZE_U		equ	STACK_SIZE_S
+0106 0010                    PRTLINE_SIZE		equ	16
+0107 000a                    NLCHAR				equ	$0A
+0108 000d                    CRCHAR				equ	$0D
+0109 0008                    BACKSPACECHAR		equ	$08
+0110 007f                    DELETECHAR			equ	$7F
+0111 0002                    RDSTRBUFSTART		equ	2
+0112 0000                    RDSTRBUFEND			equ	0
+0113 002f                    STRDateSep			equ	'/'
+0114 003a                    STRTimeSep			equ ':'
+0115                         ;	----------------------------------------------------------------------------------------------------
+0116                         ;	Stack pointer while boot sequence before RAM size evaluation
+0117 0100                    BootSSP				equ	$100									;	size = 64 bytes
+0118 00c0                    BootUSP				equ	BootSSP-STACK_SIZE_S					;	size = 64 bytes
+0119                         
+0120                         ;	----------------------------------------------------------------------------------------------------
+0121                         ;	BOTTOM RAM
+0122                         
+0123 0000                                        ORG $0000
+0124                                             
+0125 0000                    RamSize				rmb	2										;	Size of the RAM 
+0126 0002                    RamTop				rmb	2										;	Top RAM address
+0127 0004                    Swi3Vector			rmb	2										;	Vector address to SW3
+0128 0006                    Swi2Vector			rmb	2										;	Vector address to SW2
+0129 0008                    FirqVector			rmb	2										;	Vector address to FIRQ
+0130 000a                    IrqVector			rmb	2										;	Vector address to IRQ
+0131 000c                    SwiVector			rmb	2										;	Vector address to SWI
+0132 000e                    NmiVector			rmb	2										;	Vector address to NMI
+0133 0010                    Pia_CR				rmb 2										;	Scratch variable
+0134 0012                    Pia_DDR				rmb 2										;	Scratch variable
+0135 0014                    save1_reg8bits		rmb	1										;	Scratch variable
+0136 0015                    save2_reg8bits		rmb	1										;	Scratch variable
+0137 0016                    save3_reg8bits		rmb	1										;	Scratch variable
+0138 0017                    save_count			rmb	1										;	Scratch variable
+0139 0018                    decimalbuffer		rmb	4										;	Scratch variable for BCD operation
+0140 001c                    bcdbuf				rmb 5										;	Scratch variable for BCD operation
+0141 0021                    promptLine			rmb PRTLINE_SIZE							;	CLI line buffer
+0142                         
+0143                         
+0144                         ;	----------------------------------------------------------------------------------------------------
+0145                         ;	tinyBasic equates
+0146 0004                    EOL					EQU	$04
+0147 0003                    ETX					EQU	$03
+0148 0020                    SPACE				EQU	$20
+0149 000d                    CR					EQU	$0D
+0150 000a                    LF					EQU	$0A
+0151 0008                    BS					EQU	$08
+0152 0018                    CAN					EQU	$18
+0153 0007                    BELL				EQU	$07
+0154 0000                    FILL				EQU	$00
+0155 007f                    DEL					EQU	$7F
+0156 0049                    BSIZE				EQU	73
+0157 0030                    STKCUS				EQU	48
+0158                         ;
+0159 d000                    ACIA				EQU	Uart
+0160 d000                    RMCR				EQU	ACIA
+0161 d000                    TRCS				EQU	ACIA
+0162 d001                    RECEV				EQU	ACIA+1
+0163 d001                    TRANS				EQU	ACIA+1
+0164 0003                    CNTL1				EQU	$03
+0165 0015                    CNTL2				EQU	$15
+0166 0001                    RDRF				EQU	$01
+0167 0020                    ORFE				EQU	$20
+0168 0002                    TDRE				EQU	$02
+0169                         
+0170                         ; EDIT THE FOLLOWING EQUATES TO REFLECT THE DESIRED ROM AND RAM LAYOUT
+0171 0080                    LORAM				EQU	$0080	;ADDRESS OF DIRECT PAGE SCRATCH RAM
+0172 0100                    BUFFER				EQU	$0100	;ADDRESS OF MAIN RAM
+0173                         ;RAMSIZ				EQU	$0600	;SIZE OF MAIN RAM
+0174                         ;ROMADR				EQU	$E000	;ADDRESS OF TINY BASIC ROM
+0175                         ;
+0176 0149                    RAMBEG				EQU	BUFFER+BSIZE
+0177                         ;RAMEND				EQU	$7EFF  ;   BUFFER+RAMSIZ
+0178                         ;
+0179                         
+0180 0080                    					ORG	LORAM
+0181 0080                    USRBAS				RMB	2
+0182 0082                    USRTOP				RMB	2
+0183 0084                    STKLIM				RMB	2
+0184 0086                    STKTOP				RMB	2
+0185 0088                    CURSOR				RMB	2
+0186 008a                    SAVESP				RMB	2
+0187 008c                    LINENB				RMB	2
+0188 008e                    SCRTCH				RMB	2
+0189 0090                    CHAR				RMB	2
+0190 0092                    ZONE				RMB	1
+0191 0093                    MODE				RMB	1
+0192 0094                    RESRVD				RMB	1
+0193 0095                    LOEND				EQU	*
+0194                         ;	----------------------------------------------------------------------------------------------------
+0195                         ;	----------------------------------------------------------------------------------------------------
+0196                         
+0197                         ;	----------------------------------------------------------------------------------------------------
+0198                         ;	Start of System ROM
+0199                         
+0200 e000                    					org		RomStart					
+0201                         					
+0202 e000 20 0c              					bra		OSStart
+0203 e002 36 38 30 39        					fcc		"6809"
+0204 e006 01 03              					fcb		1,3
+0205 e008 14 0d 02 1b        					fcb		20,13,02,27
+0206 e00c f6 a5              					fdb		FunctionsTable
+0207                         					
+0208                         OSStart:			;	Strategic init temporaly Stack pointer
+0209 e00e 10 ce 01 00        					lds		#BootSSP
+0210 e012 ce 00 c0           					ldu		#BootUSP
+0211 e015 1c f0              					andcc	#$f0
+0212 e017 1a 50              					orcc	#$50                        ;   Disable all interrupts IRQ and FIRQ (E F H I N Z V C)
+0213                         				
+0214                         					;	Set the interrupts vectors in RAM
+0215 e019 8e f0 9b           					ldx		#Vector_swi3
+0216 e01c 9f 04              					stx		Swi3Vector
+0217                         					
+0218 e01e 8e f0 94           					ldx		#Vector_swi2
+0219 e021 9f 06              					stx		Swi2Vector
+0220                         					
+0221 e023 8e f0 86           					ldx		#Vector_firq
+0222 e026 9f 08              					stx		FirqVector
+0223                         					
+0224 e028 8e f0 7f           					ldx		#Vector_irq
+0225 e02b 9f 0a              					stx		IrqVector
+0226                         					
+0227 e02d 8e f0 78           					ldx		#Vector_swi
+0228 e030 9f 0c              					stx		SwiVector
+0229                         					
+0230 e032 8e f0 8d           					ldx		#Vector_nmi
+0231 e035 9f 0e              					stx		NmiVector
+0232                         					
+0233                         					;	Init Uart for format 8N1 and dib by 16
+0234                                             ;	CMOS 4060 has a crystal of 2457600 Hz => Q4: 2457600/16=153600 so need 153600/16=9600
+0235 e037 86 03              					lda		#$03						;	ACIA master reset
+0236 e039 b7 d0 00           					sta		Uart
+0237                         					
+0238 e03c 86 15              					lda		#%00010101                  ;   %0001 0110 => 8N1, div by 16					
+0239 e03e b7 d0 00                               sta		Uart
+0240                         					
+0241                                             ;   Diagnostic cartdridge inserted ? Code = DG
+0242 e041 b6 80 00                               lda		MagicCartHigh
+0243 e044 81 44              					cmpa	#'D'
+0244 e046 26 13              					bne		RetAutoCart1
+0245                         					
+0246 e048 b6 80 01           					lda		MagicCartLow
+0247 e04b 81 47              					cmpa	#'G'
+0248 e04d 26 0c              					bne		RetAutoCart1
+0249                         					
+0250 e04f 8e f1 1f           					ldx		#STRDiagCartOk
+0251 e052 17 0d 94           					lbsr	WriteString
+0252                         					
+0253 e055 8e e0 5b           					ldx		#RetAutoCart1				;	Load in X the return address in case of...				
+0254 e058 7e 80 02           					jmp		AutoCartEntry				;	Jump to the first instruction
+0255                         										
+0256                                             ;   Display system started
+0257 e05b 1c a0              RetAutoCart1:		andcc	#$A0                        ;   Enable all interrupts IRQ and FIRQ (E F H I N Z V C)
+0258                         
+0259 e05d 8e f0 a3                               ldx		#STRSystemStart
+0260 e060 17 0d 86           					lbsr	WriteString
+0261                         						
+0262                         					;	Automatic memory checking and size compute by step of 512 bytes
+0263 e063 8e 00 00           					ldx		#$0000
+0264 e066 a6 89 01 ff        MemCheck:    		lda  	511,x
+0265 e06a 43                 					coma                			
+0266 e06b a7 89 01 ff        					sta  	511,x
+0267 e06f a1 89 01 ff        					cmpa 	511,x            			;	IS IT RAM?
+0268 e073 26 0a              					bne  	MemCheckEnd        			;	BRANCH IF NOT (ROM, BAD RAM OR NO RAM)
+0269                         					
+0270 e075 30 89 02 00        					leax 	512,x            			;	MOVE POINTER UP ONE
+0271 e079 63 89 02 00        					com  	512,x            			;	RE-COMPLEMENT TO RESTORE BYTE
+0272 e07d 20 e7              					bra  	MemCheck          			;	KEEP LOOKING FOR END OF RAM 
+0273                         		  
+0274                         MemCheckEnd:   		
+0275 e07f 9f 00              					stx  	RamSize   
+0276 e081 30 1f                                  leax    -1,x						;	for 32Kb: $8000
+0277 e083 9f 02                                  stx  	RamTop         				;	for 32Kb: $7FFF
+0278                                             				
+0279 e085 1f 10              					tfr		x,d
+0280                         					
+0281 e087 8e f0 e7           					ldx		#STRMemCalculated
+0282 e08a 17 0d 5c           					lbsr	WriteString
+0283                         					
+0284 e08d 17 0d ee           					lbsr	WriteHexByte				;	print A
+0285 e090 1f 98              					tfr		b,a
+0286 e092 17 0d e9           					lbsr	WriteHexByte				;	print B
+0287                         					
+0288 e095 8e f0 e1           					ldx		#STRNewLine
+0289 e098 17 0d 4e           					lbsr	WriteString
+0290                         					
+0291                         					;	use the calculated RAM size to set the stacks to the good location
+0292 e09b 10 de 02           					lds		RamTop						;	set System stack
+0293 e09e 30 e8 c0           					leax	-STACK_SIZE_S,s				;	x = x - STACK_SIZE_S
+0294 e0a1 1f 13              					tfr		x,u							;	store x in User stack
+0295                         					
+0296                                             ;	add here init of any additionnal hardware	
+0297                         					;	Set port as input
+0298 e0a3 86 fb              					lda		#%11111011                  ;	clear bit DDR to access to DDR register
+0299 e0a5 b4 d0 05           					anda	PiaCRA
+0300 e0a8 b7 d0 05           					sta		PiaCRA
+0301                         					
+0302 e0ab 86 00              					lda		#PIA_INPUTS					;	pins are input
+0303 e0ad b7 d0 04           					sta		PiaDDRA						;	set Direction register, b contains the good value
+0304                         										
+0305 e0b0 86 04                                  lda		#%00000100                  ;	Set the DDR bit to enable next access to Data Register
+0306 e0b2 ba d0 05           					ora		PiaCRA
+0307 e0b5 b7 d0 05           					sta		PiaCRA			
+0308                         								
+0309                         					;	Set port as input
+0310 e0b8 86 fb              					lda		#%11111011					;	clear bit DDR to access to DDR register
+0311 e0ba b4 d0 07           					anda	PiaCRB
+0312 e0bd b7 d0 07           					sta		PiaCRB
+0313                         					
+0314 e0c0 86 00              					lda		#PIA_INPUTS					;	pins are input
+0315 e0c2 b7 d0 06           					sta		PiaDDRB						;	set Direction register, b contains the good value
+0316                         										
+0317 e0c5 86 04                                  lda		#%00000100                  ;	Set the DDR bit to enable next access to Data Register
+0318 e0c7 ba d0 07           					ora		PiaCRB
+0319 e0ca b7 d0 07           					sta		PiaCRB			
+0320                         
+0321                                             ;   Automatic cartdridge inserted ? Code = AT
+0322 e0cd b6 80 00                               lda		MagicCartHigh
+0323 e0d0 81 41              					cmpa	#'A'
+0324 e0d2 26 13              					bne		RetAutoCart2
+0325                         					
+0326 e0d4 b6 80 01           					lda		MagicCartLow
+0327 e0d7 81 54              					cmpa	#'T'
+0328 e0d9 26 0c              					bne		RetAutoCart2
+0329                         					
+0330 e0db 8e f1 38           					ldx		#STRAutCartOk
+0331 e0de 17 0d 08           					lbsr	WriteString
+0332                         					
+0333 e0e1 8e e0 e7           					ldx		#RetAutoCart2				;	Load in X the return address in case of...				
+0334 e0e4 7e 80 02           					jmp		AutoCartEntry				;	Jump to the first instruction
+0335                         
+0336                         					;	check for an application cartridge: Code = AP
+0337                         					;	Display the count of available Application and execute their init code if any
+0338 e0e7 b6 80 00           RetAutoCart2:		lda		MagicCartHigh
+0339 e0ea 81 41              					cmpa	#'A'
+0340 e0ec 26 4d              					bne		NoCartApp
+0341                         					
+0342 e0ee b6 80 01           					lda		MagicCartLow
+0343 e0f1 81 50              					cmpa	#'P'
+0344 e0f3 26 46              					bne		NoCartApp
+0345                         					
+0346 e0f5 8e f1 51           					ldx		#STRAppCartOk
+0347 e0f8 17 0c ee           					lbsr	WriteString
+0348                         					
+0349                         					
+0350 e0fb 10 8e 80 02        					ldy		#AutoCartEntry				;	Y = $8002		
+0351 e0ff c6 01              					ldb		#1							;	count of applications
+0352                         					
+0353 e101 34 04              _mnAppLoop:         pshs    b
+0354                         
+0355 e103 ae 24              					ldx		CA_Init,y					;	Load the address of Init code if any
+0356 e105 8c 00 00           					cmpx	#$0000
+0357 e108 27 06              					beq		_mnAppLoop2
+0358                         					
+0359 e10a 34 36                                  pshs    a,b,x,y						;	Be secure: save our registers before !
+0360 e10c ad 84              					jsr		0,x							;	Execute init code
+0361 e10e 35 36              					puls    a,b,x,y
+0362                                             
+0363 e110 ec a4              _mnAppLoop2:       	ldd     CA_Next,y					
+0364                                             
+0365 e112 10 83 00 00        					cmpd	#$0000
+0366 e116 27 08              					beq		_mnAppLoopEnd
+0367                         					
+0368 e118 1f 02                                  tfr     d,y
+0369 e11a 35 04                                  puls    b
+0370 e11c cb 01                                  addb	#1
+0371 e11e 20 e1              					bra		_mnAppLoop
+0372                         					
+0373 e120 8e f1 c0           _mnAppLoopEnd:		ldx		#STRCountApp
+0374 e123 17 0c c3           					lbsr	WriteString
+0375                         
+0376 e126 35 04              					puls	b
+0377 e128 4f                 					clra								;	clear upper bytes
+0378 e129 dd 1a              					std		decimalbuffer+2				;	store D to display
+0379 e12b 0f 18              					clr		decimalbuffer
+0380 e12d 0f 19              					clr		decimalbuffer+1
+0381 e12f 8e 00 18           					ldx		#decimalbuffer
+0382 e132 17 0d aa           					lbsr	WriteDecimalBytes			;	print the 4 bytes in decimal, decimalbuffer is cleared
+0383                         					
+0384 e135 8e f0 e1           					ldx		#STRNewLine
+0385 e138 17 0c ae           					lbsr	WriteString
+0386                         
+0387                                             ;puls    a					
+0388                                             ;lbsr	WriteHexByte
+0389                         					;ldx		#STRNewLine
+0390                         					;lbsr	WriteString
+0391                         
+0392                         					;	Ready
+0393 e13b 8e f1 0d           NoCartApp:			ldx		#STRSystemReady
+0394 e13e 17 0c a8           					lbsr	WriteString
+0395                         													
+0396                         					
+0397                         ;	----------------------------------------------------------------------------------------------------
+0398                         ;   Monitor Main loop to handle interaction with user
+0399                         ;	Command Line Interpreter
+0400                         
+0401 e141 8e f0 dc           Mainloop:			ldx		#STRPromptCLI
+0402 e144 17 0c a2           					lbsr	WriteString
+0403                         					
+0404 e147 8e 00 21           					ldx		#promptLine		
+0405 e14a c6 10              					ldb		#PRTLINE_SIZE
+0406 e14c 17 0c a8           					lbsr	ReadString
+0407                         					
+0408 e14f 8e f0 e1           					ldx		#STRNewLine
+0409 e152 17 0c 94           					lbsr	WriteString
+0410                         
+0411                         					;	experimentation
+0412 e155 10 8e f6 3f        					ldy		#DispatchCommands				;	Y = jumps table
+0413 e159 8e 00 21           FindCmd:			ldx		#promptLine						;	X = String entered
+0414                         
+0415 e15c 34 20              					pshs	y								;	save y before change
+0416 e15e 10 ae a4           					ldy		,y								;	load content of Y with command string to check
+0417 e161 17 0c e6           					lbsr	CompareString					;	compare
+0418 e164 27 14              					beq		FoundCmd				
+0419 e166 35 20              					puls	y								;	restore
+0420                         					
+0421 e168 31 24              					leay	4,y								;	not found, inc to next command to check
+0422 e16a ec a4              					ldd		,y								;	load D with the content at Y
+0423 e16c 10 83 00 00        					cmpd	#$0000							;	is the end of table (No address)?
+0424 e170 26 e7              					bne		FindCmd							;	No, loop again
+0425                         					
+0426 e172 8e f2 fa           					ldx		#STRSorry						;	end of table, unknow command
+0427 e175 17 0c 71           					lbsr	WriteString
+0428                         					
+0429 e178 20 c7              					bra		Mainloop                        ;	go main loop 
+0430                         					
+0431 e17a 35 20              FoundCmd:			puls	y								;	reload X with last table address
+0432 e17c 31 22                                  leay    2,y
+0433 e17e 10 ae a4                               ldy     ,y
+0434 e181 6e a4              					jmp     ,y								
+0435                         
+0436                         ;	----------------------------------------------------------------------------------------------------
+0437                         ;	Command execution
+0438                         ;	----------------------------------------------------------------------------------------------------
+0439                         
+0440                         ;	----------------------------------------------------------------------------------------------------
+0441                         ;	HELP Command
+0442 e183 8e f3 65           mnHelp:				ldx		#STRHelp
+0443 e186 17 0c 60           					lbsr	WriteString
+0444 e189 16 ff b5                           	lbra	Mainloop
+0445                         ;	----------------------------------------------------------------------------------------------------
+0446                         ;	HELP Command
+0447 e18c 8e f1 d6           mnTribute:			ldx		#STRTribute
+0448 e18f 17 0c 57           					lbsr	WriteString
+0449 e192 16 ff ac                           	lbra	Mainloop
+0450                         ;	----------------------------------------------------------------------------------------------------
+0451                         ;	VER Command
+0452 e195 8e f1 15           mnVersion:			ldx		#STRVersion
+0453 e198 17 0c 4e           					lbsr	WriteString
+0454                         					
+0455 e19b 4f                 					clra	
+0456 e19c f6 e0 06           					ldb		Major
+0457 e19f dd 1a              					std		decimalbuffer+2				;	store D to display
+0458 e1a1 0f 18              					clr		decimalbuffer
+0459 e1a3 0f 19              					clr		decimalbuffer+1
+0460 e1a5 8e 00 18           					ldx		#decimalbuffer
+0461 e1a8 17 0d 34           					lbsr	WriteDecimalBytes			;	print the 4 bytes in decimal, decimalbuffer is cleared
+0462                         					
+0463 e1ab 86 2e                              	lda		#'.'						;	symbol for data to display
+0464 e1ad 17 0d c3           					lbsr	PutChar						;	display
+0465                         										
+0466 e1b0 4f                 					clra	
+0467 e1b1 f6 e0 07           					ldb		Minor
+0468 e1b4 dd 1a              					std		decimalbuffer+2				;	store D to display
+0469 e1b6 17 0d 26           					lbsr	WriteDecimalBytes			;	print the 4 bytes in decimal, decimalbuffer is cleared
+0470                         					
+0471 e1b9 8e f0 e1           					ldx		#STRNewLine
+0472 e1bc 17 0c 2a                           	lbsr	WriteString					
+0473 e1bf 16 ff 7f           					lbra	Mainloop
+0474                         ;	----------------------------------------------------------------------------------------------------
+0475 e1c2 8e f0 f8           mnMemSize:			ldx		#STRMemSize1
+0476 e1c5 17 0c 21                           	lbsr	WriteString
+0477                         
+0478                         					
+0479                                             ;ldd		RamSize									
+0480                         					;lbsr	WriteHexByte
+0481                         
+0482                         					;tfr		b,a
+0483                         					;lbsr	WriteHexByte
+0484                         					
+0485 e1c8 dc 00              					ldd		RamSize						;	Get the total RAM available
+0486 e1ca dd 1a              					std		decimalbuffer+2				;	store D to display
+0487                                                                             
+0488 e1cc 0f 18              					clr		decimalbuffer
+0489 e1ce 0f 19              					clr		decimalbuffer+1
+0490 e1d0 8e 00 18           					ldx		#decimalbuffer
+0491 e1d3 17 0d 09           					lbsr	WriteDecimalBytes			;	print the 4 bytes in decimal, decimalbuffer is cleared
+0492                         					
+0493 e1d6 8e f1 04           					ldx		#STRMemSize2
+0494 e1d9 17 0c 0d                           	lbsr	WriteString
+0495                         					
+0496                         					;ldx		#STRNewLine
+0497                                         	;lbsr	WriteString					
+0498 e1dc 16 ff 62           					lbra	Mainloop
+0499                         ;	----------------------------------------------------------------------------------------------------
+0500                         ;	LIST Command
+0501 e1df b6 80 00           mnList:				lda		MagicCartHigh				;	Check if a cartidge is inserted		
+0502 e1e2 81 41              					cmpa	#'A'
+0503 e1e4 10 26 00 b7        					lbne	_mnListFailed				;	no
+0504                         					
+0505 e1e8 b6 80 01           					lda		MagicCartLow
+0506 e1eb 81 50              					cmpa	#'P'
+0507 e1ed 10 26 00 ae        					lbne	_mnListFailed				;	no
+0508                         					
+0509 e1f1 10 8e 80 02        					ldy		#AutoCartEntry				;	Y = $8002				
+0510 e1f5 30 2a              _mnListLoop:		leax	CA_Name,y					;	display the name
+0511 e1f7 17 0b ef           					lbsr	WriteString	
+0512                         					
+0513 e1fa 86 09              					lda		#$09						;	tabulation
+0514 e1fc 17 0d 74           					lbsr	PutChar
+0515 e1ff 86 24              					lda		#'$'						;	Hexa symbol
+0516 e201 17 0d 6f           					lbsr	PutChar
+0517                         										
+0518 e204 ec 22              					ldd		CA_Run,y					;	print the start address
+0519 e206 17 0c 75           					lbsr	WriteHexByte
+0520                         					
+0521 e209 1f 98              					tfr		b,a
+0522 e20b 17 0c 70           					lbsr	WriteHexByte
+0523                         					
+0524 e20e 86 09                                  lda		#$09						;	Space separator
+0525 e210 17 0d 60           					lbsr	PutChar
+0526                         
+0527                                             ;	DATE: DDDDDDDM.MMMDDDDD
+0528 e213 ec 26              					ldd		CA_Date,y					;	Write year as YYYY
+0529 e215 84 fe              					anda	#%11111110
+0530 e217 44                 					lsra
+0531 e218 1f 89              					tfr		a,b
+0532 e21a 4f                                     clra
+0533 e21b c3 07 bc           					addd	#1980
+0534                         
+0535 e21e dd 1a              					std		decimalbuffer+2				;	store D to display
+0536 e220 0f 18              					clr		decimalbuffer
+0537 e222 0f 19              					clr		decimalbuffer+1
+0538 e224 8e 00 18           					ldx		#decimalbuffer
+0539 e227 17 0c b5           					lbsr	WriteDecimalBytes			;	print the 4 bytes in decimal, decimalbuffer is cleared
+0540                         				
+0541                                     
+0542 e22a 86 2f              					lda		#STRDateSep
+0543 e22c 17 0d 44           					lbsr	PutChar	
+0544                         					
+0545 e22f ec 26              					ldd		CA_Date,y					;	Write month as MM
+0546 e231 54                 					lsrb	
+0547 e232 54                 					lsrb	
+0548 e233 54                 					lsrb	
+0549 e234 54                 					lsrb	
+0550 e235 54                 					lsrb	
+0551 e236 d7 14              					stb		save1_reg8bits
+0552 e238 84 01              					anda	#%00000001
+0553 e23a 48                 					lsla	
+0554 e23b 48                 					lsla	
+0555 e23c 48                 					lsla							
+0556 e23d 9a 14              					ora		save1_reg8bits
+0557 e23f 97 1b              					sta		decimalbuffer+3					
+0558 e241 8e 00 18           					ldx		#decimalbuffer
+0559 e244 17 0c 7f           					lbsr	WriteDecimal2D				;	print the 4 bytes in decimal, decimalbuffer is cleared
+0560                         
+0561 e247 86 2f              					lda		#STRDateSep
+0562 e249 17 0d 27           					lbsr	PutChar	
+0563                         					
+0564 e24c ec 26              					ldd		CA_Date,y					;	Write day as DD
+0565 e24e c4 1f              					andb	#%00011111
+0566 e250 d7 1b              					stb		decimalbuffer+3					
+0567 e252 8e 00 18           					ldx		#decimalbuffer
+0568 e255 17 0c 6e           					lbsr	WriteDecimal2D				;	print the 4 bytes in decimal, decimalbuffer is cleared
+0569                                             
+0570 e258 86 09              					lda		#$09						;	Space separator
+0571 e25a 17 0d 16           					lbsr	PutChar
+0572                         					
+0573                         					;	TIME:	HHHHHMMM.MMMSSSSS
+0574 e25d ec 28              					ldd		CA_Time,y					;	Write Hour as HH
+0575 e25f 44                 					lsra	
+0576 e260 44                 					lsra	
+0577 e261 44                 					lsra	
+0578 e262 97 1b              					sta		decimalbuffer+3
+0579 e264 4f                 					clra
+0580 e265 8e 00 18           					ldx		#decimalbuffer
+0581 e268 17 0c 5b           					lbsr	WriteDecimal2D				;	print the 4 bytes in decimal, decimalbuffer is cleared
+0582                                             
+0583 e26b 86 3a              					lda		#STRTimeSep
+0584 e26d 17 0d 03           					lbsr	PutChar	                    
+0585                         					
+0586 e270 ec 28              					ldd		CA_Time,y					;	Write Minute as MM
+0587 e272 54                 					lsrb
+0588 e273 54                 					lsrb
+0589 e274 54                 					lsrb
+0590 e275 54                 					lsrb
+0591 e276 54                 					lsrb
+0592 e277 d7 14              					stb		save1_reg8bits
+0593 e279 84 07              					anda	#%00000111
+0594 e27b 48                 					lsla	
+0595 e27c 48                 					lsla	
+0596 e27d 48                 					lsla	
+0597 e27e 9a 14              					ora		save1_reg8bits
+0598 e280 97 1b              					sta		decimalbuffer+3
+0599 e282 4f                 					clra					
+0600 e283 8e 00 18           					ldx		#decimalbuffer
+0601 e286 17 0c 3d           					lbsr	WriteDecimal2D				;	print the 4 bytes in decimal, decimalbuffer is cleared
+0602                         					
+0603                         					
+0604 e289 8e f0 e1           _mnList2:           ldx		#STRNewLine
+0605 e28c 17 0b 5a           					lbsr	WriteString	
+0606                         					
+0607 e28f ec a4              					ldd		CA_Next,y
+0608 e291 1f 02              					tfr		d,y
+0609                         					
+0610 e293 10 8c 00 00        					cmpy	#$0000
+0611 e297 27 03              					beq		_mnListEnd
+0612 e299 16 ff 59           					lbra	_mnListLoop
+0613                         					
+0614 e29c 16 fe a2           _mnListEnd:			lbra	Mainloop
+0615                         					
+0616 e29f 8e f1 94           _mnListFailed:		ldx		#STRListFailed
+0617 e2a2 17 0b 44           					lbsr	WriteString	
+0618 e2a5 16 fe 99                           	lbra	Mainloop
+0619                         					
+0620                         ;	----------------------------------------------------------------------------------------------------
+0621                         ;	RUN Command
+0622 e2a8 17 0b 94           mnRun:				lbsr	SkipSpace					;	skip space from current X									
+0623 e2ab 17 0c fd           					lbsr	ReadHexFromString			;	read hexa address pointed by X and store it to D
+0624 e2ae 1f 02              					tfr		d,y							;	store D in Y
+0625                         
+0626 e2b0 ad a4                                  jsr     0,y                    		;	Jump to this address given to run the program
+0627 e2b2 16 fe 8c                               lbra	Mainloop
+0628                         					
+0629                         ;	----------------------------------------------------------------------------------------------------
+0630                         ;	LOAD Command
+0631 e2b5 17 0b 87           mnLoad:				lbsr	SkipSpace					;	skip space from current X									
+0632 e2b8 17 0c f0           					lbsr	ReadHexFromString			;	read hexa address pointed by X and store it to D
+0633 e2bb 1f 02              					tfr		d,y							;	store D in X, the start address where upload the program
+0634                         
+0635 e2bd 8e f1 c8           					ldx		#STRLoading
+0636 e2c0 17 0b 26           					lbsr	WriteString	
+0637                         												
+0638 e2c3 17 0b b8           					lbsr	WriteHexByte				;	write the byte of A
+0639                         
+0640 e2c6 1f 98              					tfr		b,a							;	write the byte of B
+0641 e2c8 17 0b b3           					lbsr	WriteHexByte
+0642                                                          					
+0643 e2cb 8e f0 e1           					ldx		#STRNewLine
+0644 e2ce 17 0b 18           					lbsr	WriteString	
+0645                         									
+0646                         														;	Y = start address
+0647 e2d1 17 0d 57           					lbsr	LoadCodeSerial				;	Code loading form Serial port RS-232					
+0648                         					
+0649 e2d4 16 fe 6a                               lbra	Mainloop
+0650                         ;	----------------------------------------------------------------------------------------------------
+0651                         ;	PEEK Command
+0652 e2d7 17 0b 65           mnRead:				lbsr	SkipSpace					;	skip space from current X									
+0653 e2da 17 0c ce           					lbsr	ReadHexFromString			;	read hexa value pointed by X and store it to D
+0654 e2dd 1f 01              					tfr		d,x							;	store D in X
+0655                         					
+0656 e2df 86 24              					lda		#'$'						;	symbol for data to display
+0657 e2e1 17 0c 8f           					lbsr	PutChar						;	display
+0658 e2e4 a6 84              					lda		,x							;	load A with the content at the X address
+0659 e2e6 17 0b 95           					lbsr	WriteHexByte				;	display A
+0660                         					
+0661                                                                     
+0662 e2e9 86 20              					lda		#' '						;	separator
+0663 e2eb 17 0c 85           					lbsr	PutChar						;	display					
+0664                                                 
+0665 e2ee 86 62              					lda		#'b'						;	symbol for data to display
+0666 e2f0 17 0c 80           					lbsr	PutChar						;	display
+0667 e2f3 a6 84              					lda		,x							;	load A with the content at the X address
+0668 e2f5 17 0b 98           					lbsr	WriteBinByte				;	display A
+0669                         							
+0670 e2f8 8e f0 e1           					ldx		#STRNewLine
+0671 e2fb 17 0a eb                           	lbsr	WriteString	
+0672                         					
+0673 e2fe 16 fe 40           					lbra	Mainloop
+0674                         
+0675                         ;	----------------------------------------------------------------------------------------------------
+0676                         ;	POKE Command
+0677 e301 17 0b 3b           mnWrite:			lbsr	SkipSpace					;	skip space from current X				
+0678 e304 17 0c a4           					lbsr	ReadHexFromString			;	read hexa value to poke pointed by X and store it to D
+0679                         					;stb		save1_reg8bits					;	only LSB in B will be used
+0680 e307 34 04              					pshs	b
+0681                         					
+0682 e309 a6 80              					lda		,x+							;	check the separator
+0683 e30b 81 2c              					cmpa	#','
+0684 e30d 27 09              					beq		_mnWrite2
+0685                         					
+0686 e30f 8e f3 04           					ldx		#STRSyntErr					;	failed
+0687 e312 17 0a d4           					lbsr	WriteString					
+0688 e315 16 fe 29                           	lbra	Mainloop
+0689                         					
+0690 e318 17 0b 24           _mnWrite2:			lbsr	SkipSpace					;	skip space from current X	
+0691 e31b 17 0c 8d           					lbsr	ReadHexFromString			;	read hexa adr value pointed by X and store it to D
+0692                         					
+0693 e31e 1f 01              					tfr		d,x							;	store D in X
+0694 e320 35 04              					puls	b
+0695 e322 e7 84              					stb		0,x
+0696                         					
+0697 e324 8e f3 13           					ldx		#STRDone
+0698 e327 17 0a bf           					lbsr	WriteString
+0699 e32a 16 fe 14           					lbra	Mainloop
+0700                         					
+0701                         ;	----------------------------------------------------------------------------------------------------
+0702                         ;	DUMP Command
+0703 e32d 17 0b 0f           mnDump:				lbsr	SkipSpace					;	skip space from current X				
+0704 e330 17 0c 78           					lbsr	ReadHexFromString			;	read hexa value = count and store it to D
+0705 e333 d7 17              					stb		save_count					;	only LSB in B will be used
+0706                         					
+0707 e335 a6 80              					lda		,x+							;	check the separator
+0708 e337 81 2c              					cmpa	#','
+0709 e339 27 09              					beq		_mnDump2
+0710                         					
+0711 e33b 8e f3 04           					ldx		#STRSyntErr					;	failed
+0712 e33e 17 0a a8           					lbsr	WriteString					
+0713 e341 16 fd fd                           	lbra	Mainloop
+0714                         					
+0715 e344 17 0a f8           _mnDump2:			lbsr	SkipSpace					;	skip space from current X	
+0716 e347 17 0c 61           					lbsr	ReadHexFromString			;	read hexa adr value pointed by X and store it to D
+0717                         					
+0718 e34a 1f 02              					tfr		d,y							;	store D (adress start) in Y										
+0719                         					
+0720 e34c d6 17              _mnDump3:			ldb		save_count					;	reload the count
+0721 e34e c1 00              					cmpb	#0
+0722 e350 27 53              					beq		_mnDumpDone
+0723                         					
+0724 e352 5a                 					decb								;	decrement count in B
+0725 e353 d7 17              					stb		save_count					;	save count
+0726                         						
+0727 e355 86 24              					lda		#'$'						;	symbol for data to display
+0728 e357 17 0c 19           					lbsr	PutChar						;	display
+0729                         					
+0730 e35a 1f 20              					tfr		y,d
+0731 e35c 17 0b 1f           					lbsr	WriteHexByte				;	display upper D = A
+0732                         					
+0733 e35f 1f 98              					tfr		b,a
+0734 e361 17 0b 1a           					lbsr	WriteHexByte				;	display lower D = B
+0735                         
+0736 e364 86 3a              					lda		#':'						;	symbol separator
+0737 e366 17 0c 0a           					lbsr	PutChar						;	display
+0738                         					
+0739 e369 86 24              					lda		#'$'						;	symbol for data to display
+0740 e36b 17 0c 05           					lbsr	PutChar						;	display
+0741 e36e a6 a4              					lda		,y							;	load A with the content at the X address
+0742 e370 17 0b 0b           					lbsr	WriteHexByte				;	display A
+0743                         					
+0744                                                                     
+0745 e373 86 20              					lda		#' '						;	separator
+0746 e375 17 0b fb           					lbsr	PutChar						;	display					
+0747                                                 
+0748 e378 86 62              					lda		#'b'						;	symbol for data to display
+0749 e37a 17 0b f6           					lbsr	PutChar						;	display
+0750 e37d a6 a4              					lda		,y							;	load A with the content at the X address
+0751 e37f 17 0b 0e           					lbsr	WriteBinByte				;	display A
+0752                         							
+0753                         							
+0754 e382 86 20              					lda		#' '						;	separator
+0755 e384 17 0b ec           					lbsr	PutChar						;	display	
+0756 e387 a6 a4              					lda		,y							;	load A with the content at the X address
+0757                         										
+0758 e389 81 20              					cmpa    #$20                    	;   is the char <= SPACE ?
+0759 e38b 2f 09                                  ble     _mnDump4		          	;   yes		
+0760                         					
+0761 e38d 81 7f              					cmpa	#$7F						;	is the char >= DEL ?
+0762 e38f 2c 05              					bge		_mnDump4					;   yes		
+0763                         					
+0764 e391 17 0b df                               lbsr	PutChar						;	display
+0765 e394 20 05              					bra		_mnDump5
+0766                         					
+0767 e396 86 2e              _mnDump4:			lda		#'.'
+0768 e398 17 0b d8           					lbsr	PutChar						;	display
+0769                         					
+0770 e39b 8e f0 e1           _mnDump5:			ldx		#STRNewLine
+0771 e39e 17 0a 48                           	lbsr	WriteString					
+0772                         					
+0773 e3a1 31 21              					leay	1,y							;	next value
+0774 e3a3 20 a7              					bra		_mnDump3
+0775                         					
+0776 e3a5 8e f3 13           _mnDumpDone:		ldx		#STRDone
+0777 e3a8 17 0a 3e           					lbsr	WriteString
+0778 e3ab 16 fd 93           					lbra	Mainloop					
+0779                         					
+0780                         ;	----------------------------------------------------------------------------------------------------
+0781                         ;	COPY Command
+0782 e3ae 17 0a 8e           mnCopy:				lbsr	SkipSpace					;	skip space from current X				
+0783 e3b1 17 0b f7           					lbsr	ReadHexFromString			;	read hexa value = count and store it to D
+0784 e3b4 d7 17              					stb		save_count					;	only LSB in B will be used
+0785                         					
+0786 e3b6 a6 80              					lda		,x+							;	check the separator
+0787 e3b8 81 2c              					cmpa	#','
+0788 e3ba 27 09              					beq		_mnCopy2
+0789                         					
+0790 e3bc 8e f3 04           					ldx		#STRSyntErr					;	failed
+0791 e3bf 17 0a 27           					lbsr	WriteString					
+0792 e3c2 16 fd 7c                           	lbra	Mainloop
+0793                         					
+0794 e3c5 17 0a 77           _mnCopy2:			lbsr	SkipSpace					;	skip space from current X	
+0795 e3c8 17 0b e0           					lbsr	ReadHexFromString			;	read hexa adr value pointed by X and store it to D
+0796                         					
+0797 e3cb 1f 02              					tfr		d,y							;	store D (adress source) in Y										
+0798                         					
+0799 e3cd a6 80              					lda		,x+							;	check the separator
+0800 e3cf 81 2c              					cmpa	#','
+0801 e3d1 27 09              					beq		_mnCopy3
+0802                         					
+0803 e3d3 8e f3 04           					ldx		#STRSyntErr					;	failed
+0804 e3d6 17 0a 10           					lbsr	WriteString					
+0805 e3d9 16 fd 65                           	lbra	Mainloop
+0806                         					
+0807 e3dc 17 0a 60           _mnCopy3:			lbsr	SkipSpace					;	skip space from current X	
+0808 e3df 17 0b c9           					lbsr	ReadHexFromString			;	read hexa adr value pointed by X and store it to D
+0809                         					
+0810 e3e2 1f 01              					tfr		d,x							;	store D (adress destination) in X	
+0811                         					
+0812 e3e4 d6 17                                  ldb		save_count					;	reload the count
+0813 e3e6 c1 00              _mnCopy4:			cmpb	#0
+0814 e3e8 27 0b              					beq		_mnCopyDone
+0815                         					
+0816 e3ea 5a                 					decb								;	decrement count in B
+0817                         						
+0818 e3eb a6 a4                                  lda     ,y
+0819 e3ed a7 84                                  sta     ,x
+0820                                             
+0821 e3ef 31 21              					leay	1,y							;	next value Y = Y +1
+0822 e3f1 30 01              					leax	1,x
+0823 e3f3 20 f1              					bra		_mnCopy4
+0824                         					
+0825 e3f5 8e f3 13           _mnCopyDone:		ldx		#STRDone
+0826 e3f8 17 09 ee           					lbsr	WriteString
+0827 e3fb 16 fd 43           					lbra	Mainloop					
+0828                         
+0829                         ;	----------------------------------------------------------------------------------------------------
+0830                         ;	ORI Command
+0831 e3fe 17 0a 3e           mnOri:				lbsr	SkipSpace					;	skip space from current X				
+0832 e401 17 0b a7           					lbsr	ReadHexFromString			;	read mask to set pointed by X and store it to D
+0833                         					;stb		save1_reg8bits					;	only LSB in B will be used										
+0834 e404 34 04              					pshs	b
+0835                         					
+0836 e406 a6 80              					lda		,x+							;	check the separator
+0837 e408 81 2c              					cmpa	#','
+0838 e40a 27 09              					beq		_mnOri2
+0839                         					
+0840 e40c 8e f3 04           					ldx		#STRSyntErr					;	failed
+0841 e40f 17 09 d7           					lbsr	WriteString					
+0842 e412 16 fd 2c                           	lbra	Mainloop
+0843                         
+0844 e415 17 0a 27           _mnOri2:			lbsr	SkipSpace					;	skip space from current X	
+0845 e418 17 0b 90           					lbsr	ReadHexFromString			;	read hexa adr value pointed by X and store it to D
+0846                         					
+0847 e41b 1f 01              					tfr		d,x							;	store D in X
+0848 e41d 35 04              					puls	b
+0849 e41f ea 84              					orb		,x
+0850 e421 e7 84              					stb		,x
+0851                         					
+0852 e423 8e f3 13                           	ldx		#STRDone
+0853 e426 17 09 c0           					lbsr	WriteString
+0854 e429 16 fd 15           					lbra	Mainloop
+0855                         
+0856                         ;	----------------------------------------------------------------------------------------------------
+0857                         ;	ANDI Command
+0858 e42c 17 0a 10           mnAndi:				lbsr	SkipSpace					;	skip space from current X				
+0859 e42f 17 0b 79           					lbsr	ReadHexFromString			;	read mask to set pointed by X and store it to D
+0860                         					;stb		save1_reg8bits					;	only LSB in B will be used
+0861 e432 34 04              					pshs	b
+0862                         					
+0863 e434 a6 80              					lda		,x+							;	check the separator
+0864 e436 81 2c              					cmpa	#','
+0865 e438 27 09              					beq		_mnAndi2
+0866                         					
+0867 e43a 8e f3 04           					ldx		#STRSyntErr					;	failed
+0868 e43d 17 09 a9           					lbsr	WriteString					
+0869 e440 16 fc fe                           	lbra	Mainloop
+0870                         
+0871 e443 17 0b 65           _mnAndi2:			lbsr	ReadHexFromString			;	read hexa adr value pointed by X and store it to D
+0872                         					
+0873 e446 1f 01              					tfr		d,x							;	store D in X
+0874 e448 35 04              					puls	b
+0875 e44a e4 84              					andb	,x
+0876 e44c e7 84              					stb		,x
+0877                         					
+0878 e44e 8e f3 13                           	ldx		#STRDone
+0879 e451 17 09 95           					lbsr	WriteString
+0880 e454 16 fc ea           					lbra	Mainloop
+0881                         					
+0882                         ;	----------------------------------------------------------------------------------------------------
+0883                         ;	SW1 Command
+0884 e457 3f                 mnSw1:              swi
+0885 e458 16 fc e6           					lbra	Mainloop
+0886                         ;	----------------------------------------------------------------------------------------------------
+0887                         ;	SW2 Command
+0888 e45b 10 3f              mnSw2:              swi2
+0889 e45d 16 fc e1           					lbra	Mainloop
+0890                         ;	----------------------------------------------------------------------------------------------------
+0891                         ;	SW3 Command
+0892 e460 11 3f              mnSw3:              swi3
+0893 e462 16 fc dc           					lbra	Mainloop
+0894                         ;	----------------------------------------------------------------------------------------------------
+0895                         ;	BSET Command
+0896 e465 17 09 d7           mnBset:				lbsr	SkipSpace					;	skip space from current X				
+0897 e468 17 0b 40           					lbsr	ReadHexFromString			;	read hexa value as bit number to set pointed by X and store it to D
+0898                         					
+0899 e46b 10 83 00 08        					cmpd	#8
+0900 e46f 2a 11              					bpl     _mnBset1
+0901 e471 d7 14              					stb		save1_reg8bits					;	only LSB in B will be used as bit number
+0902                         					
+0903 e473 a6 80              					lda		,x+							;	check the separator
+0904 e475 81 2c              					cmpa	#','
+0905 e477 27 12              					beq		_mnBset2
+0906                         					
+0907 e479 8e f3 04           					ldx		#STRSyntErr					;	failed
+0908 e47c 17 09 6a           					lbsr	WriteString					
+0909 e47f 16 fc bf                           	lbra	Mainloop
+0910                         					
+0911 e482 8e f3 18           _mnBset1:			ldx		#STRHow						;	bit number incorrect
+0912 e485 17 09 61           					lbsr	WriteString					
+0913 e488 16 fc b6                           	lbra	Mainloop			
+0914                         
+0915 e48b 17 09 b1           _mnBset2:			lbsr	SkipSpace					;	skip space from current X	
+0916 e48e 17 0b 1a           					lbsr	ReadHexFromString			;	read hexa adr value pointed by X and store it to D
+0917 e491 1f 01              					tfr		d,x							;	store D in X
+0918                         					
+0919 e493 96 14              					lda		save1_reg8bits					;	A = bit number
+0920 e495 c6 01              					ldb		#$01						;	B = mask
+0921 e497 81 00              _mnBset3:			cmpa	#0
+0922 e499 27 04              					beq		_mnBset4
+0923 e49b 58                 					lslb	
+0924 e49c 4a                 					deca
+0925 e49d 20 f8              					bra		_mnBset3
+0926                         					
+0927 e49f ea 84              _mnBset4:          	orb		,x							;	B= B OR (x) 
+0928 e4a1 e7 84              					stb		,x							;	(x) = B
+0929                         
+0930 e4a3 8e f3 13           					ldx		#STRDone
+0931 e4a6 17 09 40           					lbsr	WriteString
+0932 e4a9 16 fc 95           					lbra	Mainloop
+0933                         
+0934 e4ac 16 fc 92           					lbra	Mainloop
+0935                         
+0936                         ;	----------------------------------------------------------------------------------------------------
+0937                         ;	BCLR Command
+0938 e4af 17 09 8d           mnBclr:				lbsr	SkipSpace					;	skip space from current X				
+0939 e4b2 17 0a f6           					lbsr	ReadHexFromString			;	read hexa value as bit number to set pointed by X and store it to D
+0940                         					
+0941 e4b5 10 83 00 08        					cmpd	#8
+0942 e4b9 2a 11              					bpl		_mnBclr1
+0943                         					
+0944 e4bb d7 14              					stb		save1_reg8bits					;	only LSB in B will be used as bit number
+0945                         					
+0946 e4bd a6 80              					lda		,x+							;	check the separator
+0947 e4bf 81 2c              					cmpa	#','
+0948 e4c1 27 12              					beq		_mnBclr2
+0949                         					
+0950 e4c3 8e f3 04           					ldx		#STRSyntErr					;	failed
+0951 e4c6 17 09 20           					lbsr	WriteString					
+0952 e4c9 16 fc 75                           	lbra	Mainloop
+0953                         					
+0954 e4cc 8e f3 18           _mnBclr1:			ldx		#STRHow						;	bit number incorrect
+0955 e4cf 17 09 17           					lbsr	WriteString					
+0956 e4d2 16 fc 6c                           	lbra	Mainloop	
+0957                         					
+0958 e4d5 17 09 67           _mnBclr2:			lbsr	SkipSpace					;	skip space from current X	
+0959 e4d8 17 0a d0           					lbsr	ReadHexFromString			;	read hexa adr value pointed by X and store it to D
+0960 e4db 1f 01              					tfr		d,x							;	store D in X
+0961                         					
+0962 e4dd 96 14              					lda		save1_reg8bits					;	A = bit number
+0963 e4df c6 fe              					ldb		#$FE						;	B = mask
+0964 e4e1 81 00              _mnBclr3:			cmpa	#0
+0965 e4e3 27 04              					beq		_mnBclr4
+0966 e4e5 59                 					rolb	
+0967 e4e6 4a                 					deca
+0968 e4e7 20 f8              					bra		_mnBclr3
+0969                         					
+0970 e4e9 e4 84              _mnBclr4:          	andb	,x							;	B = B AND (x) 
+0971 e4eb e7 84              					stb		,x							;	(x) = B
+0972                         
+0973 e4ed 8e f3 13           					ldx		#STRDone
+0974 e4f0 17 08 f6           					lbsr	WriteString
+0975 e4f3 16 fc 4b           					lbra	Mainloop
+0976                         
+0977 e4f6 16 fc 48           					lbra	Mainloop
+0978                         
+0979                         ;	----------------------------------------------------------------------------------------------------
+0980                         ;	PIA DATA REGISTER Command
+0981 e4f9 17 09 43           mnPiadr:			lbsr	SkipSpace					;	skip space from current X	
+0982 e4fc a6 80              					lda		,x+							;	check the port
+0983 e4fe 81 41              					cmpa	#'A'						;	is port A requested ?
+0984 e500 27 14              					beq		mnPiadr1					;	Yes port A, else port B
+0985                         							
+0986 e502 81 42              					cmpa	#'B'
+0987 e504 26 5a              					bne		mnPiadr6
+0988                         						
+0989 e506 10 8e d0 07        					ldy		#PiaCRB
+0990 e50a 10 9f 10           					sty		Pia_CR						;	contains the correct CR according to port A or B
+0991 e50d 10 8e d0 06        					ldy		#PiaDDRB
+0992 e511 10 9f 12           					sty		Pia_DDR						;	contains the correct DDR according to port A or B
+0993                         					
+0994 e514 20 0e              					bra		mnPiadr2
+0995                         					
+0996 e516 10 8e d0 05        mnPiadr1:			ldy		#PiaCRA
+0997 e51a 10 9f 10           					sty		Pia_CR						;	contains the correct CR according to port A or B
+0998 e51d 10 8e d0 04        					ldy		#PiaDDRA
+0999 e521 10 9f 12           					sty		Pia_DDR						;	contains the correct DDR according to port A or B
+1000                         					
+1001 e524 a6 80              mnPiadr2:			lda		,x+							;	check the separator
+1002 e526 81 2c              					cmpa	#','
+1003 e528 20 09              					bra     mnPiadr3
+1004                                             
+1005 e52a 8e f3 04           					ldx		#STRSyntErr					;	failed
+1006 e52d 17 08 b9           					lbsr	WriteString					
+1007 e530 16 fc 0e                           	lbra	Mainloop
+1008                         					
+1009 e533 a6 80              mnPiadr3:			lda		,x+							;	check the separator
+1010 e535 81 49              					cmpa	#'I'
+1011 e537 27 04              					beq		mnPiadr4
+1012                         
+1013 e539 c6 ff              					ldb		#PIA_OUTUTS					;	PINs will be in Output
+1014 e53b 20 02              					bra		mnPiadr5
+1015                         					
+1016 e53d c6 00              mnPiadr4:			ldb		#PIA_INPUTS					;	PINs will be in Input
+1017                         
+1018                         					
+1019 e53f 86 fb              mnPiadr5:			lda		#$FB						;	clear bit DDR to access to DDR register
+1020 e541 a4 9f 00 10        					anda	[Pia_CR]
+1021 e545 a7 9f 00 10        					sta		[Pia_CR]
+1022                         					
+1023 e549 e7 9f 00 12        					stb		[Pia_DDR]					;	set Direction register, b contains the good value
+1024                         					
+1025                         					
+1026 e54d 86 04                                  lda		#$04						;	Set the DDR bit to enable next access to Data Register
+1027 e54f aa 9f 00 10        					ora		[Pia_CR]
+1028 e553 a7 9f 00 10        					sta		[Pia_CR]
+1029                         					
+1030 e557 8e f3 13           					ldx		#STRDone
+1031 e55a 17 08 8c           					lbsr	WriteString
+1032 e55d 16 fb e1                               lbra	Mainloop
+1033                         					
+1034 e560 8e f3 20           mnPiadr6:			ldx		#STRWhat					;	Misunderstood: isn't port A or B....
+1035 e563 17 08 83           					lbsr	WriteString
+1036 e566 16 fb d8                               lbra	Mainloop
+1037                         	
+1038                         ;	----------------------------------------------------------------------------------------------------
+1039                         ;	PIA RD Command
+1040 e569 17 08 d3           mnPiard:			lbsr	SkipSpace					;	skip space from current X	
+1041 e56c a6 80              					lda		,x+							;	check the port
+1042 e56e 81 41              					cmpa	#'A'						;	is port A requested ?
+1043 e570 27 0a              					beq		mnPiard1				
+1044                         
+1045 e572 81 42              					cmpa	#'B'
+1046 e574 26 2c              					bne		mnPiard3
+1047                         					
+1048 e576 10 8e d0 06        					ldy		#PiaORB
+1049 e57a 20 04              					bra		mnPiard2
+1050                         					
+1051 e57c 10 8e d0 04        mnPiard1:			ldy		#PiaORA
+1052                         
+1053 e580 86 24              mnPiard2:			lda		#'$'						;	symbol for data to display
+1054 e582 17 09 ee           					lbsr	PutChar						;	display
+1055 e585 a6 a4              					lda		0,y							;	load A with the content of PIA DDRx
+1056 e587 17 08 f4           					lbsr	WriteHexByte				;	display A
+1057                         					
+1058                                                                     
+1059 e58a 86 20              					lda		#' '						;	separator
+1060 e58c 17 09 e4           					lbsr	PutChar						;	display					
+1061                                                 
+1062 e58f 86 62              					lda		#'b'						;	symbol for data to display
+1063 e591 17 09 df           					lbsr	PutChar						;	display
+1064 e594 a6 a4              					lda		0,y							;	reload A with the content of PIA DDRx
+1065 e596 17 08 f7           					lbsr	WriteBinByte				;	display A
+1066                         							
+1067 e599 8e f0 e1           					ldx		#STRNewLine
+1068 e59c 17 08 4a                           	lbsr	WriteString
+1069                         					
+1070 e59f 16 fb 9f           					lbra	Mainloop
+1071                         					
+1072 e5a2 8e f3 20           mnPiard3:			ldx		#STRWhat
+1073 e5a5 17 08 41           					lbsr	WriteString
+1074 e5a8 16 fb 96                               lbra	Mainloop					
+1075                         ;	----------------------------------------------------------------------------------------------------
+1076                         ;	PIA WR Command
+1077 e5ab 17 08 91           mnPiawr:			lbsr	SkipSpace					;	skip space from current X				
+1078 e5ae 17 09 fa           					lbsr	ReadHexFromString			;	read hexa value to write pointed by X and store it to D
+1079                         					;stb	save1_reg8bits					;	only LSB in B will be used
+1080                         					
+1081 e5b1 a6 80              					lda		,x+							;	check the separator
+1082 e5b3 81 2c              					cmpa	#','
+1083 e5b5 27 09              					beq		_mnPiawr2
+1084                         					
+1085 e5b7 8e f3 04           					ldx		#STRSyntErr					;	failed
+1086 e5ba 17 08 2c           					lbsr	WriteString					
+1087 e5bd 16 fb 81                           	lbra	Mainloop
+1088                         					
+1089 e5c0 17 08 7c           _mnPiawr2:			lbsr	SkipSpace					;	skip space from current X	
+1090 e5c3 a6 80              					lda		,x+							;	get the correct PIA port A or B to write
+1091 e5c5 81 41              					cmpa	#'A'
+1092 e5c7 27 0a              					beq		_mnPiawr3
+1093                         				
+1094 e5c9 81 42              					cmpa	#'B'
+1095 e5cb 26 15              					bne		_mnPiawr5
+1096                         					
+1097 e5cd 10 8e d0 06        					ldy		#PiaORB
+1098 e5d1 20 04              					bra		_mnPiawr4
+1099                         					
+1100 e5d3 10 8e d0 04        _mnPiawr3:			ldy		#PiaORA
+1101                         
+1102 e5d7 e7 a4              _mnPiawr4:			stb		0,y							;	B already contains the value to write
+1103                         					
+1104 e5d9 8e f3 13           					ldx		#STRDone
+1105 e5dc 17 08 0a           					lbsr	WriteString
+1106 e5df 16 fb 5f                               lbra	Mainloop
+1107                         					
+1108 e5e2 8e f3 20           _mnPiawr5:			ldx		#STRWhat
+1109 e5e5 17 08 01           					lbsr	WriteString
+1110 e5e8 16 fb 56                               lbra	Mainloop					
+1111                         ;	----------------------------------------------------------------------------------------------------
+1112                         ;	MEMTEST Command
+1113 e5eb 8e f1 6a           mnMemTest:			ldx		#STRMemTest
+1114 e5ee 17 07 f8           					lbsr	WriteString
+1115 e5f1 17 09 fd           					lbsr	MemTest
+1116 e5f4 16 fb 4a           					lbra	Mainloop
+1117                         ;	----------------------------------------------------------------------------------------------------
+1118                         ;	MEMTEST Command
+1119 e5f7 8e f0 e4           mnClear:			ldx		#STRClear
+1120 e5fa 17 07 ec           					lbsr	WriteString
+1121 e5fd 16 fb 41           					lbra	Mainloop
+1122                         ;	----------------------------------------------------------------------------------------------------
+1123                         ;	BASIC Command
+1124 e600 8e f1 b0           mnBasic:			ldx		#STRBasic
+1125 e603 17 07 e3           					lbsr	WriteString
+1126 e606 20 00              					bra		BASIC									
+1127                         ;	----------------------------------------------------------------------------------------------------
+1128                         ;	----------------------------------------------------------------------------------------------------
+1129                         ;	tinyBasic code
+1130                         
+1131 e608 7e e6 0b           BASIC:				JMP	SETUP
+1132                         ;WARMS				LDS	STKTOP
+1133                         ;	JSR	INTEEE
+1134                         ;	BRA	WMS05
+1135                         SETUP				;LDS	#RAMEND-52
+1136 e60b 10 de 02           					lds		RamTop						;	instead use the calculated value from Monitor
+1137 e60e 32 e8 cc           					leas	-52,s
+1138 e611 10 df 86           SET03				STS		STKTOP
+1139                         ;	JSR	INTEEE
+1140 e614 cc 01 49           CLEAR				LDD		#RAMBEG
+1141 e617 dd 80              					STD		USRBAS
+1142 e619 dd 82              					STD		USRTOP
+1143 e61b dd 84              CLR02				STD		STKLIM
+1144 e61d bd e7 47           WMS05				JSR		CRLF
+1145 e620 8e e6 78           					LDX		#VSTR
+1146 e623 bd e7 40           					JSR		PUTSTR
+1147 e626 10 de 86           CMDB						LDS	STKTOP
+1148 e629 0f 93              					CLR		MODE
+1149 e62b bd e7 47           					JSR		CRLF
+1150 e62e 9e 80              					LDX		USRBAS
+1151 e630 9f 88              					STX		CURSOR
+1152                         					
+1153 e632 8e 00 00           CMDE				LDX		#0000
+1154 e635 9f 8c              					STX		LINENB
+1155 e637 0d 93              					TST		MODE
+1156 e639 26 05              					BNE		CMD01
+1157                         					
+1158 e63b 86 3e              					LDA		#'>'
+1159 e63d bd ed b8           					JSR		PUTCHR
+1160                         					
+1161 e640 bd e7 9a           CMD01				JSR		GETLIN					;	instead use my own ReadString subroutine
+1162                         
+1163 e643 bd e8 f4           					JSR		TSTNBR
+1164 e646 24 0e              					BCC		CMD02
+1165 e648 29 2b              					BVS		CMD05
+1166 e64a bd e8 65           					JSR		SKIPSP
+1167 e64d 81 04              					CMPA	#EOL
+1168 e64f 27 e1              					BEQ		CMDE
+1169                         					
+1170 e651 bd e8 17           					JSR		MSLINE
+1171 e654 20 d0              					BRA		CMDB
+1172 e656 34 10              CMD02				PSHS	X
+1173 e658 9e 82              					LDX		USRTOP
+1174 e65a 9c 84              					CMPX	STKLIM
+1175 e65c 35 10              					PULS	X
+1176 e65e 27 03              					BEQ		CMD03
+1177 e660 7e e7 67           					JMP		ERRORR
+1178                         					
+1179 e663 c3 00 00           CMD03				ADDD	#0
+1180 e666 27 0d              					BEQ		CMD05
+1181                         					
+1182 e668 34 06              CMD04				PSHS	D
+1183 e66a 83 27 0f           					SUBD	#9999
+1184 e66d 35 06              					PULS	D
+1185 e66f 22 04              					BHI		CMD05
+1186 e671 8d 23              					BSR		EDITOR
+1187 e673 20 bd              					BRA		CMDE
+1188 e675 7e e7 5e           CMD05				JMP		ERRORS
+1189 e678 1b 45 54 49 4e 59  VSTR				FCC		"\033ETINY V1.38 MC6809 1977-1984"
+     20 56 31 2e 33 38
+     20 4d 43 36 38 30
+     39 20 31 39 37 37
+     2d 31 39 38 34
+1190 e695 04                 					FCB		EOL
+1191                         ;*****************************
+1192                         ;*****************************
+1193 e696 34 06              EDITOR				PSHS		D
+1194 e698 bd e8 65           					JSR		SKIPSP
+1195 e69b 9f 8e              					STX		SCRTCH
+1196 e69d a6 e4              					LDA		0,S
+1197 e69f 9e 88              					LDX		CURSOR
+1198 e6a1 9c 82              					CMPX		USRTOP
+1199 e6a3 27 05              					BEQ		ED00
+1200 e6a5 10 a3 84           					CMPD		0,X
+1201 e6a8 24 02              					BCC		ED01
+1202 e6aa 9e 80              ED00				LDX		USRBAS
+1203 e6ac bd e9 d0           ED01				JSR		FNDLIN
+1204 e6af 9f 88              					STX		CURSOR
+1205 e6b1 25 22              					BCS		ED04
+1206 e6b3 9f 8a              					STX		SAVESP
+1207 e6b5 30 02              					LEAX		2,X
+1208 e6b7 a6 80              ED02				LDA		,X+
+1209 e6b9 81 04              					CMPA		#EOL
+1210 e6bb 26 fa              					BNE		ED02
+1211 e6bd 9c 82              ED03				CMPX		USRTOP
+1212 e6bf 27 0e              					BEQ		ED35
+1213 e6c1 a6 80              					LDA		,X+
+1214 e6c3 9f 90              					STX		CHAR
+1215 e6c5 9e 8a              					LDX		SAVESP
+1216 e6c7 a7 80              					STA		,X+
+1217 e6c9 9f 8a              					STX		SAVESP
+1218 e6cb 9e 90              					LDX		CHAR
+1219 e6cd 20 ee              					BRA		ED03
+1220 e6cf 9e 8a              ED35				LDX		SAVESP
+1221 e6d1 9f 82              					STX		USRTOP
+1222 e6d3 9f 84              					STX		STKLIM
+1223 e6d5 9e 8e              ED04				LDX		SCRTCH
+1224 e6d7 c6 ff              					LDB		#-1
+1225 e6d9 5c                 ED05				INCB
+1226 e6da a6 80              					LDA		,X+
+1227 e6dc 81 04              					CMPA		#EOL
+1228 e6de 26 f9              					BNE		ED05
+1229 e6e0 5d                 					TSTB	
+1230 e6e1 26 03              					BNE		ED55
+1231 e6e3 32 62              					LEAS		2,S
+1232 e6e5 39                 					RTS
+1233 e6e6 30 1f              ED55				LEAX		-1,X
+1234 e6e8 cb 04              					ADDB		#4
+1235 e6ea 30 1f              ED06				LEAX		-1,X
+1236 e6ec 5a                 					DECB	
+1237 e6ed a6 84              					LDA		0,X
+1238 e6ef 81 20              					CMPA		#SPACE
+1239 e6f1 27 f7              					BEQ		ED06
+1240 e6f3 86 04              					LDA		#EOL
+1241 e6f5 a7 01              					STA		1,X
+1242 e6f7 4f                 					CLRA	
+1243 e6f8 9e 82              					LDX		USRTOP
+1244 e6fa 9f 90              					STX		CHAR
+1245 e6fc d3 82              					ADDD		USRTOP
+1246 e6fe dd 82              					STD		USRTOP
+1247 e700 dd 84              					STD		STKLIM
+1248 e702 bd e9 6c           					JSR		TSTSTK
+1249 e705 24 07              					BCC		ED07
+1250 e707 9f 82              					STX		USRTOP
+1251 e709 9f 84              					STX		STKLIM
+1252 e70b 7e e7 56           					JMP		ERRORF
+1253 e70e 9e 82              ED07				LDX		USRTOP
+1254 e710 9f 8a              ED08				STX		SAVESP
+1255 e712 9e 90              					LDX		CHAR
+1256 e714 9c 88              					CMPX		CURSOR
+1257 e716 27 0a              					BEQ		ED09
+1258 e718 a6 82              					LDA		,-X
+1259 e71a 9f 90              					STX		CHAR
+1260 e71c 9e 8a              					LDX		SAVESP
+1261 e71e a7 82              					STA		,-X
+1262 e720 20 ee              					BRA		ED08
+1263 e722 35 06              ED09						PULS	D
+1264 e724 9e 88              					LDX		CURSOR
+1265 e726 ed 81              					STD		,X++
+1266 e728 9f 90              					STX		CHAR
+1267 e72a 9e 8e              ED10						LDX	SCRTCH
+1268 e72c a6 80              					LDA		,X+
+1269 e72e 9f 8e              					STX		SCRTCH
+1270 e730 9e 90              					LDX		CHAR
+1271 e732 a7 80              					STA		,X+
+1272 e734 9f 90              					STX		CHAR
+1273 e736 81 04              					CMPA		#EOL
+1274 e738 26 f0              					BNE		ED10
+1275 e73a 39                 					RTS
+1276                         ;*****************************
+1277                         ;*****************************
+1278 e73b bd ed b8           PUTS01				JSR		PUTCHR
+1279 e73e 30 01              					LEAX		1,X
+1280 e740 a6 84              PUTSTR				LDA		0,X
+1281 e742 81 04              					CMPA		#EOL
+1282 e744 26 f5              					BNE		PUTS01
+1283 e746 39                 					RTS
+1284                         ;*****************************
+1285                         ;*****************************
+1286 e747 8e e7 4f           CRLF				LDX		#CRLFST
+1287 e74a 8d f4              					BSR		PUTSTR
+1288 e74c 0f 92              					CLR		ZONE
+1289 e74e 39                 					RTS
+1290                         					
+1291 e74f 0d 0a 7f 00 00 00  CRLFST				FCB		CR,LF,DEL,FILL,FILL,FILL,EOL
+     04
+1292                         ;*****************************
+1293                         ;*****************************
+1294 e756 8d 26              ERRORF				BSR		ER01
+1295 e758 53 4f 52 52 59     					FCC		"SORRY"
+1296 e75d 04                 					FCB		EOL
+1297 e75e 8d 1e              ERRORS				BSR		ER01
+1298 e760 57 48 41 54 20 3f  					FCC		"WHAT ?"
+1299 e766 04                 					FCB		EOL
+1300 e767 8d 15              ERRORR				BSR		ER01
+1301 e769 48 4f 57 20 3f     					FCC		"HOW ?"
+1302 e76e 04                 					FCB		EOL
+1303 e76f 8d 0d              BREAK				BSR		ER01
+1304 e771 42 52 45 41 4b     					FCC		"BREAK"
+1305 e776 04                 					FCB		EOL
+1306 e777 8d 05              END					BSR		ER01
+1307 e779 53 54 4f 50        					FCC		"STOP"
+1308 e77d 04                 					FCB		EOL
+1309 e77e 8d c7              ER01				BSR		CRLF
+1310 e780 86 07              					LDA		#BELL
+1311 e782 bd ed b8           					JSR		PUTCHR
+1312 e785 dc 8c              					LDD		LINENB
+1313 e787 bd ec 6a           					JSR		PRNT4
+1314 e78a 86 20              					LDA		#SPACE
+1315 e78c bd ed b8           					JSR		PUTCHR
+1316 e78f 35 10              					PULS		X
+1317 e791 8d ad              					BSR		PUTSTR
+1318 e793 8d b2              					BSR		CRLF
+1319 e795 7e e6 26           					JMP		CMDB
+1320                         ;*****************************
+1321                         ;*****************************
+1322 e798 8d ad              GL00				BSR		CRLF
+1323 e79a 8e 01 00           GETLIN				LDX		#BUFFER
+1324 e79d bd ed ad           GL03				JSR		GETCHR
+1325 e7a0 81 20              					CMPA		#SPACE
+1326 e7a2 25 14              					BCS		GL05
+1327 e7a4 81 7f              					CMPA		#$7F
+1328 e7a6 27 f5              					BEQ		GL03
+1329 e7a8 8c 01 48           					CMPX		#BUFFER+BSIZE-1
+1330 e7ab 26 04              					BNE		GL04
+1331 e7ad 86 07              					LDA		#BELL
+1332 e7af 20 02              					BRA		GL02
+1333 e7b1 a7 80              GL04				STA		,X+
+1334 e7b3 bd ed b8           GL02				JSR		PUTCHR
+1335 e7b6 20 e5              					BRA		GL03
+1336 e7b8 81 08              GL05				CMPA		#BS
+1337 e7ba 27 24              					BEQ		GL07
+1338 e7bc 81 18              					CMPA		#CAN
+1339 e7be 27 d8              					BEQ		GL00
+1340 e7c0 81 0a              					CMPA		#LF
+1341 e7c2 27 31              					BEQ		GL09
+1342 e7c4 81 0d              					CMPA		#CR
+1343 e7c6 26 d5              					BNE		GL03
+1344 e7c8 0d 93              					TST		MODE
+1345 e7ca 27 05              					BEQ		GL06
+1346 e7cc bd ed b8           					JSR		PUTCHR
+1347 e7cf 20 07              					BRA		GL08
+1348 e7d1 34 10              GL06				PSHS		X
+1349 e7d3 bd e7 47           					JSR		CRLF
+1350 e7d6 35 10              					PULS	X
+1351 e7d8 86 04              GL08				LDA		#EOL
+1352 e7da a7 84              					STA		0,X
+1353 e7dc 8e 01 00           					LDX		#BUFFER
+1354 e7df 39                 					RTS
+1355 e7e0 8c 01 00           GL07				CMPX		#BUFFER
+1356 e7e3 27 b8              					BEQ		GL03
+1357 e7e5 30 1f              					LEAX		-1,X
+1358 e7e7 86 08              					LDA		#BS
+1359 e7e9 bd ed b8           					JSR		PUTCHR
+1360 e7ec 86 20              					LDA		#SPACE
+1361 e7ee bd ed b8           					JSR		PUTCHR
+1362 e7f1 86 08              					LDA		#BS
+1363 e7f3 20 be              					BRA		GL02
+1364 e7f5 1a 01              GL09				ORCC		#$01
+1365 e7f7 06 93              					ROR		MODE
+1366 e7f9 20 b8              					BRA		GL02
+1367                         ;*****************************
+1368                         ;*****************************
+1369 e7fb 30 01              REM00				LEAX	1,X
+1370 e7fd 8d 66              REM					BSR		SKIPSP
+1371 e7ff 81 04              					CMPA		#EOL
+1372 e801 26 f8              					BNE		REM00
+1373 e803 bd eb 3d           ENDSMT				JSR		TSTEOL
+1374 e806 96 8c              ENDS02				LDA		LINENB
+1375 e808 9a 8d              					ORA		LINENB+1
+1376 e80a 27 14              					BEQ		REM09
+1377 e80c 9c 82              REM05				CMPX		USRTOP
+1378 e80e 26 03              					BNE		NXTLIN
+1379 e810 7e e7 67           					JMP		ERRORR
+1380 e813 ec 81              NXTLIN				LDD		,X++
+1381 e815 dd 8c              					STD		LINENB
+1382 e817 bd ed a8           MSLINE				JSR		TSTBRK
+1383 e81a 8d 08              					BSR		IFAN
+1384 e81c 25 03              					BCS		IMPLET
+1385 e81e 34 06              					PSHS	D
+1386 e820 39                 REM09				RTS
+1387 e821 7e eb 4e           IMPLET				JMP		LET
+1388                         ;*****************************
+1389                         ;*****************************
+1390 e824 8d 3f              IFAN				BSR		SKIPSP
+1391 e826 9f 88              					STX		CURSOR
+1392 e828 8e ed 43           					LDX		#VERBT
+1393 e82b a6 80              FAN00				LDA		,X+
+1394 e82d 81 04              					CMPA		#EOL
+1395 e82f 26 05              					BNE		FAN04
+1396 e831 9e 88              					LDX		CURSOR
+1397 e833 1a 01              					ORCC	#$01
+1398 e835 39                 					RTS
+1399 e836 9f 90              FAN04				STX		CHAR
+1400 e838 9e 88              					LDX		CURSOR
+1401 e83a 9f 8e              					STX		SCRTCH
+1402 e83c 9e 8e              FAN05				LDX		SCRTCH
+1403 e83e a1 84              					CMPA	0,X
+1404 e840 26 15              					BNE		FAN07
+1405 e842 30 01              					LEAX	1,X
+1406 e844 9f 8e              					STX		SCRTCH
+1407 e846 9e 90              					LDX		CHAR
+1408 e848 a6 80              					LDA		,X+
+1409 e84a 9f 90              					STX		CHAR
+1410 e84c 81 04              					CMPA	#EOL
+1411 e84e 26 ec              					BNE		FAN05
+1412 e850 ec 84              					LDD		0,X
+1413 e852 9e 8e              					LDX		SCRTCH
+1414 e854 1c fe              					ANDCC	#$FE
+1415 e856 39                 					RTS
+1416 e857 9e 90              FAN07				LDX		CHAR
+1417 e859 a6 80              FAN08				LDA		,X+
+1418 e85b 81 04              					CMPA	#EOL
+1419 e85d 26 fa              					BNE		FAN08
+1420 e85f 30 02              					LEAX	2,X
+1421 e861 20 c8              					BRA		FAN00
+1422                         ;*****************************
+1423                         ;*****************************
+1424 e863 30 01              NXTNSP				LEAX	1,X
+1425 e865 a6 84              SKIPSP				LDA		0,X
+1426 e867 81 20              					CMPA	#SPACE
+1427 e869 27 f8              					BEQ		NXTNSP
+1428 e86b 39                 					RTS
+1429                         ;*****************************
+1430                         ;*****************************
+1431 e86c 8d 1a              TSTHEX				BSR		TSTDIG
+1432 e86e 24 22              					BCC		TST05
+1433 e870 81 41              					CMPA	#'A'
+1434 e872 25 11              					BCS		TST03
+1435 e874 81 46              					CMPA	#'F'
+1436 e876 22 0d              					BHI		TST03
+1437 e878 80 37              					SUBA	#'A'-10
+1438 e87a 1c fe              					ANDCC	#$FE
+1439 e87c 39                 					RTS
+1440                         ;*****************************
+1441                         ;*****************************
+1442 e87d 81 41              TSTLTR				CMPA	#'A'
+1443 e87f 25 04              					BCS		TST03
+1444 e881 81 5a              					CMPA	#'Z'
+1445 e883 23 0d              					BLS		TST05
+1446 e885 1a 01              TST03				ORCC	#$01
+1447 e887 39                 					RTS
+1448                         ;*****************************
+1449                         ;*****************************
+1450 e888 81 30              TSTDIG				CMPA	#'0'
+1451 e88a 25 f9              					BCS		TST03
+1452 e88c 81 39              					CMPA	#'9'
+1453 e88e 22 f5              					BHI		TST03
+1454 e890 80 30              					SUBA	#'0'
+1455 e892 1c fe              TST05				ANDCC	#$FE
+1456 e894 39                 					RTS
+1457                         ;*****************************
+1458                         ;*****************************
+1459 e895 8d ce              TSTVAR				BSR		SKIPSP
+1460 e897 8d e4              					BSR		TSTLTR
+1461 e899 25 12              					BCS		TSTV03
+1462 e89b 1f 89              					TFR		A,B
+1463 e89d a6 01              					LDA		1,X
+1464 e89f 8d dc              					BSR		TSTLTR
+1465 e8a1 24 e2              					BCC		TST03
+1466 e8a3 30 01              					LEAX	1,X
+1467 e8a5 c0 41              					SUBB	#'A'
+1468 e8a7 58                 					ASLB
+1469 e8a8 4f                 					CLRA
+1470 e8a9 d3 86              					ADDD	STKTOP
+1471 e8ab 1c fe              TSTV02				ANDCC	#$FE
+1472 e8ad 39                 TSTV03				RTS
+1473                         ;*****************************
+1474                         ;*****************************
+1475 e8ae bd eb 1c           USER				JSR		ARGONE
+1476 e8b1 34 06              					PSHS	D
+1477 e8b3 bd e8 65           					JSR		SKIPSP
+1478 e8b6 81 2c              					CMPA	#','
+1479 e8b8 27 09              					BEQ		USER03
+1480 e8ba 81 29              					CMPA	#')'
+1481 e8bc 1a 01              					ORCC	#$01
+1482 e8be 27 15              					BEQ		USER05
+1483 e8c0 7e e7 5e           USER02				JMP		ERRORS
+1484 e8c3 30 01              USER03				LEAX	1,X
+1485 e8c5 bd ea 4f           					JSR		EXPR
+1486 e8c8 34 02              					PSHS	A
+1487 e8ca bd e8 65           					JSR		SKIPSP
+1488 e8cd 81 29              					CMPA	#')'
+1489 e8cf 35 02              					PULS	A
+1490 e8d1 26 ed              					BNE		USER02
+1491 e8d3 1c fe              					ANDCC	#$FE
+1492 e8d5 30 01              USER05				LEAX	1,X
+1493 e8d7 9f 88              					STX		CURSOR
+1494 e8d9 ad f1              					JSR		[,S++]
+1495 e8db 9e 88              					LDX		CURSOR
+1496 e8dd 1c fe              					ANDCC	#$FE
+1497 e8df 39                 					RTS
+1498                         ;*****************************
+1499                         ;*****************************
+1500 e8e0 bd e8 65           TSTSNB				JSR		SKIPSP
+1501 e8e3 81 2d              					CMPA	#'-'
+1502 e8e5 26 0d              					BNE		TSTNBR
+1503 e8e7 30 01              					LEAX	1,X
+1504 e8e9 8d 09              					BSR		TSTNBR
+1505 e8eb 25 06              					BCS		TSN02
+1506 e8ed 40                 					NEGA
+1507 e8ee 50                 					NEGB
+1508 e8ef 82 00              					SBCA	#0
+1509 e8f1 1c fc              					ANDCC	#$FC
+1510 e8f3 39                 TSN02				RTS
+1511                         ;*****************************
+1512                         ;*****************************
+1513 e8f4 bd e8 65           TSTNBR				JSR		SKIPSP
+1514 e8f7 bd e8 88           					JSR		TSTDIG
+1515 e8fa 24 2f              					BCC		TSTN02
+1516 e8fc 81 24              					CMPA	#'$'
+1517 e8fe 1a 01              					ORCC	#$01
+1518 e900 26 60              					BNE		TSTN09
+1519 e902 30 01              TSTN20				LEAX	1,X
+1520 e904 6f e2              					CLR		,-S
+1521 e906 6f e2              					CLR		,-S
+1522 e908 a6 84              TSTN23				LDA		0,X
+1523 e90a bd e8 6c           					JSR		TSTHEX
+1524 e90d 25 4f              					BCS		TSTN07
+1525 e90f 30 01              					LEAX	1,X
+1526 e911 34 10              					PSHS	X
+1527 e913 34 02              					PSHS	A
+1528 e915 ec 63              					LDD		3,S
+1529 e917 85 f0              					BITA	#$F0
+1530 e919 26 4a              					BNE		TSTN11
+1531 e91b 58                 					ASLB
+1532 e91c 49                 					ROLA
+1533 e91d 58                 					ASLB
+1534 e91e 49                 					ROLA
+1535 e91f 58                 					ASLB
+1536 e920 49                 					ROLA
+1537 e921 58                 					ASLB
+1538 e922 49                 					ROLA
+1539 e923 eb e0              					ADDB	,S+
+1540 e925 ed 62              					STD		2,S
+1541 e927 35 10              					PULS	X
+1542 e929 20 dd              					BRA		TSTN23
+1543 e92b 30 01              TSTN02				LEAX	1,X
+1544 e92d 34 02              					PSHS	A
+1545 e92f 6f e2              					CLR		,-S
+1546 e931 a6 84              TSTN03				LDA		0,X
+1547 e933 bd e8 88           					JSR		TSTDIG
+1548 e936 25 26              					BCS		TSTN07
+1549 e938 30 01              					LEAX	1,X
+1550 e93a 34 10              					PSHS	X
+1551 e93c 34 02              					PSHS	A
+1552 e93e ec 63              					LDD		3,S
+1553 e940 58                 					ASLB
+1554 e941 49                 					ROLA
+1555 e942 29 21              					BVS		TSTN11
+1556 e944 58                 					ASLB	
+1557 e945 49                 					ROLA	
+1558 e946 29 1d              					BVS		TSTN11
+1559 e948 e3 63              					ADDD	3,S
+1560 e94a 29 19              					BVS		TSTN11
+1561 e94c 58                 					ASLB	
+1562 e94d 49                 					ROLA	
+1563 e94e 29 15              					BVS		TSTN11
+1564 e950 eb e4              					ADDB	0,S
+1565 e952 89 00              					ADCA	#0
+1566 e954 29 0f              					BVS		TSTN11
+1567 e956 ed 63              					STD		3,S
+1568 e958 32 61              					LEAS	1,S
+1569 e95a 35 10              					PULS	X
+1570 e95c 20 d3              					BRA		TSTN03
+1571 e95e 35 06              TSTN07				PULS	D
+1572 e960 1c fe              					ANDCC	#$FE
+1573 e962 1c fd              TSTN09				ANDCC	#$FD
+1574 e964 39                 					RTS
+1575 e965 ae 61              TSTN11				LDX		1,S
+1576 e967 32 65              					LEAS	5,S
+1577 e969 1a 03              					ORCC	#$03
+1578 e96b 39                 					RTS
+1579                         ;*****************************
+1580                         ;*****************************
+1581 e96c 10 df 8a           TSTSTK				STS		SAVESP
+1582 e96f dc 8a              					LDD		SAVESP
+1583 e971 83 00 30           					SUBD	#STKCUS
+1584 e974 93 84              					SUBD	STKLIM
+1585 e976 39                 					RTS
+1586                         ;*****************************
+1587                         ;*****************************
+1588 e977 bd eb 09           PEEK				JSR		PAREXP
+1589 e97a 34 06              					PSHS	D
+1590 e97c 34 10              					PSHS	X
+1591 e97e e6 f8 02           					LDB		[2,S]
+1592 e981 35 10              					PULS	X
+1593 e983 32 62              					LEAS	2,S
+1594 e985 4f                 					CLRA
+1595 e986 39                 					RTS
+1596                         ;*****************************
+1597                         ;*****************************
+1598 e987 bd eb 09           POKE				JSR		PAREXP
+1599 e98a 34 06              					PSHS	D
+1600 e98c bd e8 65           					JSR		SKIPSP
+1601 e98f 81 3d              					CMPA	#'='
+1602 e991 27 03              					BEQ		POKE05
+1603 e993 7e e7 5e           					JMP		ERRORS
+1604 e996 30 01              POKE05				LEAX	1,X
+1605 e998 bd ea 4f           					JSR		EXPR
+1606 e99b bd eb 3d           					JSR		TSTEOL
+1607 e99e 34 10              					PSHS	X
+1608 e9a0 e7 f8 02           					STB		[2,S]
+1609 e9a3 35 10              					PULS	X
+1610 e9a5 32 62              					LEAS	2,S
+1611 e9a7 7e e8 06           					JMP		ENDS02
+1612                         ;*****************************
+1613                         ;*****************************
+1614 e9aa bd e8 65           TSTFUN				JSR		SKIPSP
+1615 e9ad 9f 88              					STX		CURSOR
+1616 e9af 8e e9 ba           					LDX		#FUNT
+1617 e9b2 bd e8 2b           					JSR		FAN00
+1618 e9b5 25 02              					BCS		TSTF05
+1619 e9b7 34 06              					PSHS	D
+1620 e9b9 39                 TSTF05				RTS
+1621                         ;*****************************
+1622                         ;*****************************
+1623 e9ba 55 53 52           FUNT				FCC		"USR"
+1624 e9bd 04                 					FCB		EOL
+1625 e9be e8 ae              					FDB		USER
+1626 e9c0 50 45 45 4b        					FCC		"PEEK"
+1627 e9c4 04                 					FCB		EOL
+1628 e9c5 e9 77              					FDB		PEEK
+1629 e9c7 4d 45 4d           					FCC		"MEM"
+1630 e9ca 04                 					FCB		EOL
+1631 e9cb e9 6c              					FDB		TSTSTK
+1632 e9cd 04                 					FCB		EOL
+1633                         ;*****************************
+1634                         ;*****************************
+1635 e9ce 9e 80              FLINE				LDX		USRBAS
+1636 e9d0 9c 82              FNDLIN				CMPX	USRTOP
+1637 e9d2 26 03              					BNE		FND03
+1638 e9d4 1a 03              					ORCC	#$03
+1639 e9d6 39                 					RTS
+1640 e9d7 10 a3 84           FND03				CMPD	0,X
+1641 e9da 26 03              					BNE		FND05
+1642 e9dc 1c fc              					ANDCC	#$FC
+1643 e9de 39                 					RTS
+1644 e9df 24 05              FND05				BCC		FND07
+1645 e9e1 1a 01              					ORCC	#$01
+1646 e9e3 1c fd              					ANDCC	#$FD
+1647 e9e5 39                 					RTS
+1648 e9e6 34 02              FND07				PSHS	A
+1649 e9e8 86 04              					LDA		#EOL
+1650 e9ea 30 01              					LEAX	1,X
+1651 e9ec 30 01              FND09				LEAX	1,X
+1652 e9ee a1 84              					CMPA	0,X
+1653 e9f0 26 fa              					BNE		FND09
+1654 e9f2 35 02              					PULS	A
+1655 e9f4 30 01              					LEAX	1,X
+1656 e9f6 20 d8              					BRA		FNDLIN
+1657                         ;*****************************
+1658                         ;*****************************
+1659 e9f8 8d 55              RELEXP				BSR		EXPR
+1660 e9fa 34 06              					PSHS	D
+1661 e9fc 5f                 					CLRB
+1662 e9fd bd e8 65           					JSR		SKIPSP
+1663 ea00 81 3d              					CMPA	#'='
+1664 ea02 27 23              					BEQ		REL06
+1665 ea04 81 3c              					CMPA	#'<'
+1666 ea06 26 10              					BNE		REL03
+1667 ea08 30 01              					LEAX	1,X
+1668 ea0a 5c                 					INCB
+1669 ea0b bd e8 65           					JSR		SKIPSP
+1670 ea0e 81 3e              					CMPA	#'>'
+1671 ea10 26 11              					BNE		REL05
+1672 ea12 30 01              					LEAX	1,X
+1673 ea14 cb 04              					ADDB	#4
+1674 ea16 20 13              					BRA		REL07
+1675 ea18 81 3e              REL03				CMPA	#'>'
+1676 ea1a 26 5f              					BNE		EXPR06
+1677 ea1c 30 01              					LEAX	1,X
+1678 ea1e cb 04              					ADDB	#4
+1679 ea20 bd e8 65           					JSR		SKIPSP
+1680 ea23 81 3d              REL05				CMPA	#'='
+1681 ea25 26 04              					BNE		REL07
+1682 ea27 30 01              REL06				LEAX	1,X
+1683 ea29 cb 02              					ADDB	#2
+1684 ea2b 34 04              REL07				PSHS	B
+1685 ea2d 8d 20              					BSR		EXPR
+1686 ea2f 34 10              					PSHS	X
+1687 ea31 a3 63              					SUBD	3,S
+1688 ea33 1f a8              					TFR		CC,A
+1689 ea35 44                 					LSRA
+1690 ea36 1f 89              					TFR		A,B
+1691 ea38 48                 					ASLA
+1692 ea39 48                 					ASLA
+1693 ea3a 34 04              					PSHS	B
+1694 ea3c ab e0              					ADDA	,S+
+1695 ea3e 84 06              					ANDA	#$06
+1696 ea40 26 01              					BNE		REL08
+1697 ea42 4c                 					INCA
+1698 ea43 5f                 REL08				CLRB
+1699 ea44 a4 62              					ANDA	2,S
+1700 ea46 27 01              					BEQ		REL09
+1701 ea48 53                 					COMB
+1702 ea49 4f                 REL09				CLRA
+1703 ea4a 35 10              					PULS	X
+1704 ea4c 32 63              					LEAS	3,S
+1705 ea4e 39                 					RTS
+1706                         ;*****************************
+1707                         ;*****************************
+1708 ea4f 6f e2              EXPR				CLR		,-S
+1709 ea51 6f e2              					CLR		,-S
+1710 ea53 bd e8 65           					JSR		SKIPSP
+1711 ea56 81 2d              					CMPA	#'-'
+1712 ea58 27 17              					BEQ		EXPR05
+1713 ea5a 81 2b              					CMPA	#'+'
+1714 ea5c 26 02              					BNE		EXPR03
+1715 ea5e 30 01              EXPR02				LEAX	1,X
+1716 ea60 8d 1c              EXPR03				BSR		TERM
+1717 ea62 e3 e4              EXPR04				ADDD	0,S
+1718 ea64 ed e4              					STD	0,S
+1719 ea66 bd e8 65           					JSR		SKIPSP
+1720 ea69 81 2b              					CMPA	#'+'
+1721 ea6b 27 f1              					BEQ		EXPR02
+1722 ea6d 81 2d              					CMPA	#'-'
+1723 ea6f 26 0a              					BNE		EXPR06
+1724 ea71 30 01              EXPR05				LEAX	1,X
+1725 ea73 8d 09              					BSR		TERM
+1726 ea75 40                 					NEGA
+1727 ea76 50                 					NEGB
+1728 ea77 82 00              					SBCA	#0
+1729 ea79 20 e7              					BRA		EXPR04
+1730 ea7b 35 06              EXPR06				PULS	D
+1731 ea7d 39                 					RTS
+1732                         ;*****************************
+1733                         ;*****************************
+1734 ea7e bd ea f1           TERM				JSR		FACT
+1735 ea81 34 06              					PSHS	D
+1736 ea83 bd e8 65           TERM03				JSR		SKIPSP
+1737 ea86 81 2a              					CMPA	#'*'
+1738 ea88 27 48              					BEQ		TERM07
+1739 ea8a 81 2f              					CMPA	#'/'
+1740 ea8c 27 03              					BEQ		TERM05
+1741 ea8e 35 06              					PULS	D
+1742 ea90 39                 					RTS
+1743 ea91 30 01              TERM05				LEAX	1,X
+1744 ea93 8d 5c              					BSR		FACT
+1745 ea95 34 10              					PSHS	X
+1746 ea97 30 62              					LEAX	2,S
+1747 ea99 34 06              					PSHS	D
+1748 ea9b a8 84              					EORA	0,X
+1749 ea9d bd eb 30           					JSR		ABSX
+1750 eaa0 30 e4              					LEAX	0,S
+1751 eaa2 bd eb 30           					JSR		ABSX
+1752 eaa5 34 02              					PSHS	A
+1753 eaa7 86 11              					LDA		#17
+1754 eaa9 34 02              					PSHS	A
+1755 eaab 4f                 					CLRA
+1756 eaac 5f                 					CLRB
+1757 eaad a3 62              DIV05				SUBD	2,S
+1758 eaaf 24 06              					BCC		DIV07
+1759 eab1 e3 62              					ADDD	2,S
+1760 eab3 1c fe              					ANDCC	#$FE
+1761 eab5 20 02              					BRA		DIV09
+1762 eab7 1a 01              DIV07				ORCC	#$01
+1763 eab9 69 67              DIV09				ROL		7,S
+1764 eabb 69 66              					ROL		6,S
+1765 eabd 59                 					ROLB
+1766 eabe 49                 					ROLA
+1767 eabf 6a e4              					DEC		0,S
+1768 eac1 26 ea              					BNE		DIV05
+1769 eac3 a6 61              					LDA		1,S
+1770 eac5 32 64              					LEAS	4,S
+1771 eac7 4d                 					TSTA
+1772 eac8 2a 04              					BPL		TERM06
+1773 eaca 30 62              					LEAX	2,S
+1774 eacc 8d 66              					BSR		NEGX
+1775 eace 35 10              TERM06				PULS	X
+1776 ead0 20 b1              					BRA		TERM03
+1777 ead2 30 01              TERM07				LEAX	1,X
+1778 ead4 8d 1b              					BSR		FACT
+1779 ead6 34 04              MULT				PSHS	B
+1780 ead8 e6 62              					LDB		2,S
+1781 eada 3d                 					MUL
+1782 eadb a6 61              					LDA		1,S
+1783 eadd e7 61              					STB		1,S
+1784 eadf e6 e4              					LDB		0,S
+1785 eae1 3d                 					MUL
+1786 eae2 a6 62              					LDA		2,S
+1787 eae4 e7 62              					STB		2,S
+1788 eae6 35 04              					PULS	B
+1789 eae8 3d                 					MUL
+1790 eae9 ab e4              					ADDA	0,S
+1791 eaeb ab 61              					ADDA	1,S
+1792 eaed ed e4              					STD		0,S
+1793 eaef 20 92              					BRA		TERM03
+1794                         ;*****************************
+1795                         ;*****************************
+1796 eaf1 bd e8 95           FACT				JSR		TSTVAR
+1797 eaf4 25 09              					BCS		FACT03
+1798 eaf6 34 10              					PSHS		X
+1799 eaf8 1f 01              					TFR		D,X
+1800 eafa ec 84              					LDD		0,X
+1801 eafc 35 10              					PULS	X
+1802 eafe 39                 FACT02				RTS
+1803 eaff bd e8 f4           FACT03				JSR		TSTNBR
+1804 eb02 24 fa              					BCC		FACT02
+1805 eb04 bd e9 aa           					JSR		TSTFUN
+1806 eb07 24 f5              					BCC		FACT02
+1807 eb09 8d 11              PAREXP				BSR		ARGONE
+1808 eb0b 34 02              					PSHS	A
+1809 eb0d bd e8 65           					JSR		SKIPSP
+1810 eb10 81 29              					CMPA	#')'
+1811 eb12 35 02              					PULS	A
+1812 eb14 26 03              					BNE		FACT05
+1813 eb16 30 01              					LEAX	1,X
+1814 eb18 39                 					RTS
+1815 eb19 7e e7 5e           FACT05				JMP		ERRORS
+1816                         ;*****************************
+1817                         ;*****************************
+1818 eb1c bd e9 6c           ARGONE				JSR		TSTSTK
+1819 eb1f 24 03              					BCC		FACT04
+1820 eb21 7e e7 56           					JMP		ERRORF
+1821 eb24 bd e8 65           FACT04				JSR		SKIPSP
+1822 eb27 81 28              					CMPA	#'('
+1823 eb29 26 ee              					BNE		FACT05
+1824 eb2b 30 01              					LEAX	1,X
+1825 eb2d 7e ea 4f           					JMP		EXPR
+1826                         ;*****************************
+1827                         ;*****************************
+1828 eb30 6d 84              ABSX				TST		0,X
+1829 eb32 2a 08              					BPL		NEG05
+1830 eb34 60 84              NEGX				NEG		0,X
+1831 eb36 60 01              					NEG		1,X
+1832 eb38 24 02              					BCC		NEG05
+1833 eb3a 6a 84              					DEC		0,X
+1834 eb3c 39                 NEG05				RTS
+1835                         ;*****************************
+1836                         ;*****************************
+1837 eb3d 34 02              TSTEOL				PSHS	A
+1838 eb3f bd e8 65           					JSR		SKIPSP
+1839 eb42 81 04              					CMPA	#EOL
+1840 eb44 27 03              					BEQ		TEOL03
+1841 eb46 7e e7 5e           					JMP		ERRORS
+1842 eb49 30 01              TEOL03				LEAX	1,X
+1843 eb4b 35 02              					PULS	A
+1844 eb4d 39                 					RTS
+1845                         ;*****************************
+1846                         ;*****************************
+1847 eb4e bd e8 95           LET					JSR		TSTVAR
+1848 eb51 24 03              					BCC		LET03
+1849 eb53 7e e7 5e           					JMP		ERRORS
+1850 eb56 34 06              LET03				PSHS	D
+1851 eb58 bd e8 65           					JSR		SKIPSP
+1852 eb5b 81 3d              					CMPA	#'='
+1853 eb5d 27 03              					BEQ		LET05
+1854 eb5f 7e e7 5e           					JMP		ERRORS
+1855 eb62 30 01              LET05				LEAX	1,X
+1856 eb64 bd ea 4f           					JSR		EXPR
+1857 eb67 8d d4              					BSR		TSTEOL
+1858 eb69 9f 88              					STX		CURSOR
+1859 eb6b 35 10              					PULS	X
+1860 eb6d ed 84              					STD		0,X
+1861 eb6f 9e 88              					LDX		CURSOR
+1862 eb71 7e e8 06           					JMP		ENDS02
+1863                         ;*****************************
+1864                         ;*****************************
+1865 eb74 bd e9 f8           IF					JSR		RELEXP
+1866 eb77 5d                 					TSTB	
+1867 eb78 27 03              					BEQ		IF03
+1868 eb7a 7e e8 17           					JMP		MSLINE
+1869 eb7d 7e e7 fd           IF03				JMP		REM
+1870                         ;*****************************
+1871                         ;*****************************
+1872 eb80 bd ea 4f           GOTO				JSR		EXPR
+1873 eb83 8d b8              					BSR		TSTEOL
+1874 eb85 bd e9 ce           					JSR		FLINE
+1875 eb88 25 0f              					BCS		GOSB04
+1876 eb8a 7e e8 13           					JMP		NXTLIN
+1877                         ;*****************************
+1878                         ;*****************************
+1879 eb8d bd ea 4f           GOSUB				JSR		EXPR
+1880 eb90 8d ab              					BSR		TSTEOL
+1881 eb92 9f 88              					STX		CURSOR
+1882 eb94 bd e9 ce           					JSR		FLINE
+1883 eb97 24 03              					BCC		GOSB03
+1884 eb99 7e e7 67           GOSB04				JMP		ERRORR
+1885 eb9c bd e9 6c           GOSB03				JSR		TSTSTK
+1886 eb9f 24 03              					BCC		GOSB05
+1887 eba1 7e e7 56           					JMP		ERRORF
+1888 eba4 dc 88              GOSB05				LDD		CURSOR
+1889 eba6 34 06              					PSHS	D
+1890 eba8 dc 8c              					LDD	LINENB
+1891 ebaa 34 06              					PSHS	D
+1892 ebac bd e8 13           					JSR	NXTLIN
+1893 ebaf 35 06              					PULS	D
+1894 ebb1 dd 8c              					STD	LINENB
+1895 ebb3 35 10              					PULS	X
+1896 ebb5 7e e8 06           					JMP	ENDS02
+1897                         ;*****************************
+1898                         ;*****************************
+1899 eb3d                    RETURN	EQU	TSTEOL
+1900                         ;*****************************
+1901                         ;*****************************
+1902 ebb8 bd e8 65           PRINT				JSR	SKIPSP
+1903 ebbb 81 2c              PR01				CMPA	#','
+1904 ebbd 27 36              					BEQ	PR05
+1905 ebbf 81 3b              					CMPA	#';'
+1906 ebc1 27 3d              					BEQ	PR07
+1907 ebc3 81 04              					CMPA	#EOL
+1908 ebc5 27 25              					BEQ	PR04
+1909 ebc7 81 22              					CMPA	#'"'
+1910 ebc9 26 06              					BNE	PR02
+1911 ebcb 30 01              					LEAX	1,X
+1912 ebcd 8d 42              					BSR	PRNTQS
+1913 ebcf 20 09              					BRA	PR03
+1914 ebd1 bd ea 4f           PR02				JSR	EXPR
+1915 ebd4 34 10              					PSHS	X
+1916 ebd6 8d 47              					BSR	PRNTN
+1917 ebd8 35 10              					PULS	X
+1918 ebda bd e8 65           PR03				JSR	SKIPSP
+1919 ebdd 81 2c              					CMPA	#','
+1920 ebdf 27 14              					BEQ	PR05
+1921 ebe1 81 3b              					CMPA	#';'
+1922 ebe3 27 1b              					BEQ	PR07
+1923 ebe5 81 04              					CMPA	#EOL
+1924 ebe7 27 03              					BEQ	PR04
+1925 ebe9 7e e7 5e           					JMP	ERRORS
+1926 ebec 34 10              PR04				PSHS	X
+1927 ebee bd e7 47           					JSR	CRLF
+1928 ebf1 35 10              					PULS	X
+1929 ebf3 20 14              					BRA	PR08
+1930 ebf5 c6 07              PR05				LDB	#$7
+1931 ebf7 86 20              PR06				LDA	#SPACE
+1932 ebf9 bd ed b8           					JSR	PUTCHR
+1933 ebfc d5 92              					BITB	ZONE
+1934 ebfe 26 f7              					BNE	PR06
+1935 ec00 30 01              PR07				LEAX	1,X
+1936 ec02 bd e8 65           					JSR	SKIPSP
+1937 ec05 81 04              					CMPA	#EOL
+1938 ec07 26 b2              					BNE	PR01
+1939 ec09 30 01              PR08				LEAX	1,X
+1940 ec0b 7e e8 06           					JMP	ENDS02
+1941                         ;
+1942                         ;
+1943 ec0e bd ed b8           PRQ01				JSR	PUTCHR
+1944 ec11 a6 80              PRNTQS				LDA	,X+
+1945 ec13 81 04              					CMPA	#EOL
+1946 ec15 26 03              					BNE	PRQ03
+1947 ec17 7e e7 5e           					JMP	ERRORS
+1948 ec1a 81 22              PRQ03				CMPA	#'"'
+1949 ec1c 26 f0              					BNE	PRQ01
+1950 ec1e 39                 					RTS
+1951                         ;
+1952 ec1f 4d                 PRNTN				TSTA
+1953 ec20 2a 0d              					BPL	PRN03
+1954 ec22 40                 					NEGA
+1955 ec23 50                 					NEGB
+1956 ec24 82 00              					SBCA	#0
+1957 ec26 34 02              					PSHS	A
+1958 ec28 86 2d              					LDA	#'-'
+1959 ec2a bd ed b8           					JSR	PUTCHR
+1960 ec2d 35 02              					PULS	A
+1961 ec2f 8e ec 5e           PRN03				LDX	#PRNPT-2
+1962 ec32 30 02              PRN05				LEAX	2,X
+1963 ec34 10 a3 84           					CMPD	0,X
+1964 ec37 24 05              					BCC	PRN07
+1965 ec39 8c ec 68           					CMPX	#PRNPTO
+1966 ec3c 26 f4              					BNE	PRN05
+1967 ec3e 0f 90              PRN07				CLR	CHAR
+1968 ec40 10 a3 84           PRN09				CMPD	0,X
+1969 ec43 25 06              					BCS	PRN11
+1970 ec45 a3 84              					SUBD	0,X
+1971 ec47 0c 90              					INC	CHAR
+1972 ec49 20 f5              					BRA	PRN09
+1973 ec4b 34 02              PRN11				PSHS	A
+1974 ec4d 86 30              					LDA	#'0'
+1975 ec4f 9b 90              					ADDA	CHAR
+1976 ec51 bd ed b8           					JSR	PUTCHR
+1977 ec54 35 02              					PULS	A
+1978 ec56 8c ec 68           					CMPX	#PRNPTO
+1979 ec59 27 04              					BEQ	PRN13
+1980 ec5b 30 02              					LEAX	2,X
+1981 ec5d 20 df              					BRA	PRN07
+1982 ec5f 39                 PRN13				RTS
+1983 ec60 27 10              PRNPT				FDB	10000
+1984 ec62 03 e8              					FDB	1000
+1985 ec64 00 64              					FDB	100
+1986 ec66 00 0a              					FDB	10
+1987 ec68 00 01              PRNPTO				FDB	1
+1988                         ;
+1989 ec6a 8e ec 62           PRNT4				LDX	#PRNPT+2
+1990 ec6d 20 cf              					BRA	PRN07
+1991                         ;*****************************
+1992                         ;*****************************
+1993 ec6f bd e8 95           INPUT				JSR	TSTVAR
+1994 ec72 25 3c              					BCS	IN11
+1995 ec74 34 06              					PSHS	D
+1996 ec76 9f 88              					STX	CURSOR
+1997 ec78 86 3f              IN03				LDA	#'?'
+1998 ec7a bd ed b8           					JSR	PUTCHR
+1999                         					
+2000 ec7d bd e7 9a           					JSR		GETLIN					;	instead use my own ReadString subroutine
+2001                         					
+2002                         					
+2003 ec80 bd e8 65           IN05				JSR	SKIPSP
+2004 ec83 81 04              					CMPA	#EOL
+2005 ec85 27 f1              					BEQ	IN03
+2006 ec87 bd e8 e0           					JSR	TSTSNB
+2007 ec8a 24 0b              					BCC	IN07
+2008 ec8c 8e ec c4           					LDX	#RMESS
+2009 ec8f bd e7 40           					JSR	PUTSTR
+2010 ec92 bd e7 47           					JSR	CRLF
+2011 ec95 20 e1              					BRA	IN03
+2012 ec97 9f 8e              IN07				STX	SCRTCH
+2013 ec99 35 10              					PULS	X
+2014 ec9b ed 84              					STD	0,X
+2015 ec9d 9e 88              					LDX	CURSOR
+2016 ec9f bd e8 65           					JSR	SKIPSP
+2017 eca2 81 2c              					CMPA	#','
+2018 eca4 27 03              					BEQ	IN09
+2019 eca6 7e e8 03           					JMP	ENDSMT
+2020 eca9 30 01              IN09				LEAX	1,X
+2021 ecab bd e8 95           					JSR	TSTVAR
+2022 ecae 24 03              					BCC	IN13
+2023 ecb0 7e e7 5e           IN11				JMP	ERRORS
+2024 ecb3 34 06              IN13				PSHS	D
+2025 ecb5 34 10              					PSHS	X
+2026 ecb7 9e 8e              					LDX	SCRTCH
+2027 ecb9 bd e8 65           					JSR	SKIPSP
+2028 ecbc 81 2c              					CMPA	#','
+2029 ecbe 26 c0              					BNE	IN05
+2030 ecc0 30 01              					LEAX	1,X
+2031 ecc2 20 bc              					BRA	IN05
+2032 ecc4 52 45 2d 45 4e 54  RMESS				FCC	"RE-ENTER"
+     45 52
+2033 eccc 04                 					FCB	EOL
+2034                         ;*****************************
+2035                         ;*****************************
+2036 eccd 9e 86              RUN					LDX	STKTOP
+2037 eccf 86 34              					LDA	#52
+2038 ecd1 6f 80              RUN01				CLR	,X+
+2039 ecd3 4a                 					DECA
+2040 ecd4 26 fb              					BNE	RUN01
+2041 ecd6 9e 80              					LDX	USRBAS
+2042 ecd8 7e e8 0c           					JMP	REM05
+2043                         ;*****************************
+2044                         ;*****************************
+2045 ecdb bd e8 f4           LIST				JSR	TSTNBR
+2046 ecde 24 08              					BCC	LIST03
+2047 ece0 4f                 					CLRA
+2048 ece1 5f                 					CLRB
+2049 ece2 dd 88              					STD	CURSOR
+2050 ece4 86 7f              					LDA	#$7F
+2051 ece6 20 17              					BRA	LIST07
+2052 ece8 dd 88              LIST03				STD	CURSOR
+2053 ecea bd e8 65           					JSR	SKIPSP
+2054 eced 81 2c              					CMPA	#','
+2055 ecef 27 04              					BEQ	LIST05
+2056 ecf1 96 88              					LDA	CURSOR
+2057 ecf3 20 0a              					BRA	LIST07
+2058 ecf5 30 01              LIST05				LEAX	1,X
+2059 ecf7 bd e8 f4           					JSR	TSTNBR
+2060 ecfa 24 03              					BCC	LIST07
+2061 ecfc 7e e7 5e           					JMP	ERRORS
+2062 ecff bd eb 3d           LIST07				JSR	TSTEOL
+2063 ed02 34 06              					PSHS	D
+2064 ed04 dc 88              					LDD	CURSOR
+2065 ed06 9f 88              					STX	CURSOR
+2066 ed08 bd e9 ce           					JSR	FLINE
+2067 ed0b 9c 82              LIST09				CMPX	USRTOP
+2068 ed0d 27 28              					BEQ	LIST10
+2069 ed0f 35 06              					PULS	D
+2070 ed11 10 a3 84           					CMPD	0,X
+2071 ed14 25 28              					BCS	LIST11
+2072 ed16 34 06              					PSHS	D
+2073 ed18 ec 81              					LDD	,X++
+2074 ed1a 34 10              					PSHS	X
+2075 ed1c bd ec 6a           					JSR	PRNT4
+2076 ed1f 35 10              					PULS	X
+2077 ed21 86 20              					LDA	#SPACE
+2078 ed23 bd ed b8           					JSR	PUTCHR
+2079 ed26 bd e7 40           					JSR	PUTSTR
+2080 ed29 30 01              					LEAX	1,X
+2081 ed2b 34 10              					PSHS	X
+2082 ed2d bd e7 47           					JSR	CRLF
+2083 ed30 35 10              					PULS	X
+2084 ed32 bd ed a8           					JSR	TSTBRK
+2085 ed35 20 d4              					BRA	LIST09
+2086 ed37 32 62              LIST10				LEAS	2,S
+2087 ed39 86 03              					LDA	#ETX
+2088 ed3b bd ed b8           					JSR	PUTCHR
+2089 ed3e 9e 88              LIST11				LDX	CURSOR
+2090 ed40 7e e8 06           					JMP	ENDS02
+2091                         ;*****************************
+2092                         ;*****************************
+2093 ed43 4c 45 54           VERBT				FCC	"LET"
+2094 ed46 04                 					FCB	EOL
+2095 ed47 eb 4e              					FDB	LET
+2096 ed49 49 46              					FCC	"IF"
+2097 ed4b 04                 					FCB	EOL
+2098 ed4c eb 74              					FDB	IF
+2099 ed4e 47 4f 54 4f        					FCC	"GOTO"
+2100 ed52 04                 					FCB	EOL
+2101 ed53 eb 80              					FDB	GOTO
+2102 ed55 47 4f 53 55 42     					FCC	"GOSUB"
+2103 ed5a 04                 					FCB	EOL
+2104 ed5b eb 8d              					FDB	GOSUB
+2105 ed5d 52 45 54 55 52 4e  					FCC	"RETURN"
+2106 ed63 04                 					FCB	EOL
+2107 ed64 eb 3d              					FDB	RETURN
+2108 ed66 50 4f 4b 45        					FCC	"POKE"
+2109 ed6a 04                 					FCB	EOL
+2110 ed6b e9 87              					FDB	POKE
+2111 ed6d 50 52 49 4e 54     					FCC	"PRINT"
+2112 ed72 04                 					FCB	EOL
+2113 ed73 eb b8              					FDB	PRINT
+2114 ed75 49 4e 50 55 54     					FCC	"INPUT"
+2115 ed7a 04                 					FCB	EOL
+2116 ed7b ec 6f              					FDB	INPUT
+2117 ed7d 52 45 4d           					FCC	"REM"
+2118 ed80 04                 					FCB	EOL
+2119 ed81 e7 fd              					FDB	REM
+2120 ed83 53 54 4f 50        					FCC	"STOP"
+2121 ed87 04                 					FCB	EOL
+2122 ed88 e7 77              					FDB	END
+2123 ed8a 45 4e 44           					FCC	"END"
+2124 ed8d 04                 					FCB	EOL
+2125 ed8e e7 77              					FDB	END
+2126 ed90 52 55 4e           					FCC	"RUN"
+2127 ed93 04                 					FCB	EOL
+2128 ed94 ec cd              					FDB	RUN
+2129 ed96 4c 49 53 54        					FCC	"LIST"
+2130 ed9a 04                 					FCB	EOL
+2131 ed9b ec db              					FDB	LIST
+2132 ed9d 4e 45 57           					FCC	"NEW"
+2133 eda0 04                 					FCB	EOL
+2134 eda1 e6 14              					FDB	CLEAR
+2135 eda3 3f                 					FCC	"?"
+2136 eda4 04                 					FCB	EOL
+2137 eda5 eb b8              					FDB	PRINT
+2138 eda7 04                 					FCB	EOL
+2139                         ;*****************************
+2140                         ;*****************************
+2141 eda8 bd ed d6           TSTBRK				JSR	BRKEEE
+2142 edab 27 0a              					BEQ	GETC05
+2143 edad bd ed bd           GETCHR				JSR	INEEE
+2144 edb0 81 03              					CMPA	#ETX
+2145 edb2 26 03              					BNE	GETC05
+2146 edb4 7e e7 6f           					JMP	BREAK
+2147 edb7 39                 GETC05				RTS
+2148                         
+2149 edb8 0c 92              PUTCHR				INC	ZONE
+2150 edba 7e ed c7           					JMP	OUTEEE
+2151                         ;*****************************
+2152                         ;*****************************
+2153 edbd 8d 17              INEEE				BSR	BRKEEE
+2154 edbf 27 fc              					BEQ	INEEE
+2155 edc1 b6 d0 01           					LDA	RECEV
+2156 edc4 84 7f              					ANDA	#$7F
+2157 edc6 39                 					RTS
+2158                         					
+2159 edc7 34 02              OUTEEE				PSHS	A
+2160 edc9 b6 d0 00           OUT01				LDA	TRCS
+2161 edcc 85 02              					BITA	#TDRE
+2162 edce 27 f9              					BEQ	OUT01
+2163 edd0 35 02              					PULS	A
+2164 edd2 b7 d0 01           					STA	TRANS
+2165 edd5 39                 					RTS
+2166                         					
+2167 edd6 34 02              BRKEEE				PSHS	A
+2168 edd8 b6 d0 00           BRK03				LDA	TRCS
+2169 eddb 85 20              					BITA	#ORFE
+2170 eddd 27 05              					BEQ	BRK05
+2171 eddf b6 d0 01           					LDA	RECEV
+2172 ede2 20 f4              					BRA	BRK03
+2173 ede4 85 01              BRK05				BITA	#RDRF
+2174 ede6 35 02              					PULS	A
+2175 ede8 39                 					RTS
+2176                         ;	----------------------------------------------------------------------------------------------------
+2177                         ;	----------------------------------------------------------------------------------------------------
+2178                         ;	Write a string on the ACIA/Terminal Console
+2179                         ;	X = address of the string to write
+2180                         
+2181 ede9 34 13              WriteString			pshs	a,x,cc
+2182 edeb a6 80              WSloop:				lda		,x+
+2183 eded 27 05              					beq		WS_done
+2184 edef 17 01 81           					lbsr	PutChar
+2185 edf2 20 f7              					bra		WSloop
+2186                         					
+2187 edf4 35 13              WS_done:			puls	a,x,cc
+2188 edf6 39                 					rts
+2189                         
+2190                         ;	----------------------------------------------------------------------------------------------------
+2191                         ; Read a string from the ACIA/Terminal Console
+2192                         ; arguments:	X = pointer to string buffer
+2193                         ;				B = maximum character count in B
+2194                         ; returns:		string copied to buffer
+2195                         ; destroys:		A,B
+2196                         
+2197 edf7 34 10              ReadString:			pshs	x					;	save buffer origin
+2198                         
+2199 edf9 5a                 					decb						;	leave room for null char.
+2200 edfa 3a                 					abx							;	save buffer end
+2201 edfb 34 10              					pshs	x
+2202 edfd ae 62              					ldx		RDSTRBUFSTART,s		;	restore buffer origin
+2203                         					
+2204 edff 17 01 80           rl_getchar:			lbsr	GetCharUntil
+2205 ee02 81 0a              					cmpa	#NLCHAR				;	return could be CR or LF
+2206 ee04 27 30              					beq		rl_linedone
+2207                         					
+2208 ee06 81 0d              					cmpa	#CRCHAR
+2209 ee08 27 2c              					beq		rl_linedone
+2210                         		
+2211 ee0a 81 08              					cmpa	#BACKSPACECHAR		;	handle delete or backspace
+2212 ee0c 27 0f              					beq		rl_deletechar
+2213                         		
+2214 ee0e 81 7f              					cmpa	#DELETECHAR
+2215 ee10 27 0b              					beq		rl_deletechar
+2216                         					
+2217                         					; lbsr	VALIDATE_ALL		;	validate character
+2218                         					; bvs		rl_getchar
+2219                         					
+2220 ee12 ac e4              rl_storechar:		cmpx	RDSTRBUFEND,s		;	max amount of characters typed?
+2221 ee14 2c e9              					bge		rl_getchar			;	yes, don't store character
+2222                         					
+2223 ee16 17 01 5a           					lbsr	PutChar				;	echo character
+2224 ee19 a7 80              					sta		,x+					;	store char in buffer
+2225 ee1b 20 e2              					bra		rl_getchar
+2226                         					
+2227 ee1d ac 62              rl_deletechar:		cmpx	RDSTRBUFSTART,s		;	don't delete if at first char
+2228 ee1f 27 de              					beq		rl_getchar
+2229                         		
+2230 ee21 86 08              					lda		#$08
+2231 ee23 17 01 4d           					lbsr	PutChar				;	send delete sequence (\b space \b)
+2232                         		
+2233 ee26 86 20              					lda		#$20
+2234 ee28 17 01 48           					lbsr	PutChar
+2235                         		
+2236 ee2b 86 08              					lda		#$08
+2237 ee2d 17 01 43           					lbsr	PutChar
+2238                         		
+2239 ee30 86 00              					lda		#0					;	overwrite last char with 0
+2240 ee32 a7 82              					sta		,-x
+2241 ee34 20 c9              					bra		rl_getchar
+2242                         					
+2243 ee36 86 00              rl_linedone:		lda		#0					;	null-terminate the string
+2244 ee38 a7 80              					sta		,x+
+2245                         					
+2246 ee3a 32 62              					leas	2,s					;	throw away end address
+2247 ee3c 35 10              					puls	x					;	restore X
+2248                         					
+2249 ee3e 39                 					rts
+2250                         
+2251                         ;	----------------------------------------------------------------------------------------------------
+2252                         ;	register: X = string where to skip space
+2253                         ;	output: X = next character not equal to SPACE
+2254                         
+2255 ee3f a6 84              SkipSpace:    		lda    ,x
+2256 ee41 81 20              					cmpa   #SPACE
+2257 ee43 26 04              					bne    SkipSpaceEnd
+2258 ee45 30 01              					leax   1,x   
+2259 ee47 20 f6              					bra    SkipSpace
+2260 ee49 39                 SkipSpaceEnd:  		rts
+2261                         
+2262                         					
+2263                         ;	----------------------------------------------------------------------------------------------------
+2264                         ;	compare the strings
+2265                         ;	register: X = prompt line string
+2266                         ;	register: Y = reference string
+2267                         ;	CCR.Z = 1 if equal else 0
+2268                         ;	output:	x point to the next character to compare after the recognized sub-string reference
+2269                         ;
+2270                         ;	ex:	X = "READ FFFE"		Y = "READ"
+2271                         
+2272 ee4a 34 22              CompareString:		pshs	a,y
+2273                         
+2274 ee4c a6 a0              _CompareString:		lda		,y+						;	get a character from reference string
+2275 ee4e 81 00              					cmpa	#0						;	compare to EOS
+2276 ee50 27 0b              					beq		_CMPStringdone			;	YES, end of string
+2277                         					
+2278 ee52 a1 80              					cmpa	,x+						;	compare this ref character with the entered
+2279 ee54 26 02              					bne		_CMPStringfailed		;	different
+2280                         										
+2281 ee56 20 f4              					bra		_CompareString			;	continue
+2282                         					
+2283 ee58 35 22              _CMPStringfailed:	puls	a,y
+2284 ee5a 1c fb              					andcc	#$FB					;	clear bit Z					
+2285 ee5c 39                 					rts
+2286                         					
+2287 ee5d 35 22              _CMPStringdone:		puls	a,y
+2288 ee5f 1a 04              					orcc	#$04					;	set bit Z			
+2289 ee61 39                 					rts			
+2290                         
+2291                         ;	----------------------------------------------------------------------------------------------------
+2292                         ;	compare the strings
+2293                         ;	register: X = string where to find inside the second
+2294                         ;	register: Y = second string
+2295                         ;	CCR.Z = 1 if equal else 0
+2296                         
+2297 ee62 34 22              StartWithString:	pshs	a,y
+2298                         
+2299 ee64 a6 80              _StartWithString:	lda		,x+
+2300 ee66 a1 a0              					cmpa	,y+
+2301 ee68 26 0a              					bne		_StartWithfailed
+2302                         					
+2303 ee6a 81 00              					cmpa	#0                      ;   end if null termintated
+2304 ee6c 27 0b              					beq		_StartWithdone
+2305                                             
+2306 ee6e 81 20                                  cmpa	#' '                    ;   end if space
+2307 ee70 27 07              					beq		_StartWithdone
+2308                                             
+2309 ee72 20 f0              					bra		_StartWithString
+2310                         				
+2311 ee74 35 22              _StartWithfailed:	puls	a,y
+2312 ee76 1c fb              					andcc	#$FB					;	clear bit Z					
+2313 ee78 39                 					rts
+2314                         					
+2315 ee79 35 22              _StartWithdone:		puls	a,y
+2316 ee7b 1a 04              					orcc	#$04					;	set bit Z			
+2317 ee7d 39                 					rts			
+2318                         					
+2319                         ;	----------------------------------------------------------------------------------------------------
+2320                         ;	Write a byte in hexadecimal on the ACIA/Terminal Console
+2321                         ;	register: A = byte to display
+2322                         			
+2323 ee7e 34 01              WriteHexByte		pshs	cc
+2324 ee80 46                 					rora
+2325 ee81 46                 					rora
+2326 ee82 46                 					rora
+2327 ee83 46                 					rora
+2328 ee84 8d 2e              					bsr		PutHexChar
+2329 ee86 46                 					rora
+2330 ee87 46                 					rora
+2331 ee88 46                 					rora
+2332 ee89 46                 					rora
+2333 ee8a 46                 					rora
+2334 ee8b 8d 27              					bsr		PutHexChar
+2335 ee8d 35 01              					puls	cc
+2336 ee8f 39                 					rts
+2337                         
+2338                         ;	----------------------------------------------------------------------------------------------------
+2339                         ;	Write a byte in hexadecimal on the ACIA/Terminal Console
+2340                         ;	register: A = byte to display
+2341                         
+2342 ee90 34 05              WriteBinByte:		pshs	b,cc
+2343 ee92 c6 80              					ldb		#$80
+2344                         					
+2345 ee94 d7 14              _WriteBinByte1:		stb		save1_reg8bits
+2346 ee96 34 02                                  pshs    a
+2347 ee98 94 14              					anda	save1_reg8bits
+2348 ee9a 27 09              					beq		_WriteBinByte2			;	bit = 0
+2349                         					
+2350 ee9c 86 31              					lda		#'1'
+2351 ee9e 17 00 d2           					lbsr	PutChar
+2352 eea1 35 02              					puls	a
+2353 eea3 20 07              					bra		_WriteBinByte3
+2354                         					
+2355 eea5 86 30              _WriteBinByte2:     lda		#'0'
+2356 eea7 17 00 c9           					lbsr	PutChar
+2357 eeaa 35 02              					puls	a
+2358                         
+2359 eeac 54                 _WriteBinByte3:		lsrb							;	A >> 1		    
+2360 eead 27 02              					beq		_WriteBinByte			;	A = 0 ?
+2361 eeaf 20 e3              					bra		_WriteBinByte1
+2362                         					
+2363 eeb1 35 05              _WriteBinByte:		puls	b,cc
+2364 eeb3 39                 					rts
+2365                         					
+2366                         ;	----------------------------------------------------------------------------------------------------
+2367                         ;	Convert the LSB content of register A to ASCI representation and call PutChar to display it
+2368 eeb4 34 03              PutHexChar			pshs	a,cc
+2369 eeb6 84 0f              					anda	#$0F
+2370 eeb8 8b 30              					adda	#'0'
+2371 eeba 81 39              					cmpa	#'9'
+2372 eebc 2f 02              					ble		_PutHexChar1
+2373                         					
+2374 eebe 8b 07              					adda	#7
+2375 eec0 17 00 b0           _PutHexChar1		lbsr	PutChar
+2376 eec3 35 03              					puls	a,cc
+2377 eec5 39                 					rts
+2378                         
+2379                         ;	----------------------------------------------------------------------------------------------------
+2380                         ;	Write on the terminal, the content of the last byte of the buffer (4-bytes) pointed by X
+2381                         ;	Print only 2 digit on this end byte
+2382                         ;	Number at that location is destroyed by the process.
+2383                         
+2384 eec6 34 76              WriteDecimal2D:		pshs	a,b,x,y,u
+2385                         							
+2386 eec8 17 00 7a           					lbsr 	bin2bcd             ;	Convert to bcd
+2387                         
+2388 eecb 8e 00 1c                   			ldx 	#bcdbuf             ;	Traverse 5-byte buffer.
+2389 eece 30 04              					leax	4,x					;	Point to the last byte
+2390                         					
+2391 eed0 a6 84              					lda 	,x
+2392                                             
+2393 eed2 17 ff a9           					lbsr	WriteHexByte		;	FIX: More quick to reuse this routine
+2394                         					
+2395                         					;pshs    a
+2396                         					;lsra
+2397                         					;lsra
+2398                         					;lsra
+2399                         					;lsra                        ;	Extract higher digit from bcd byte.
+2400                         					;adda 	#'0'								
+2401                         					;lbsr	PutChar				;	A contents a character > '0'
+2402                         					
+2403                         					;puls    a
+2404                         					;anda 	#$0F				;	Extract lower digit.
+2405                         					;adda 	#'0'	                    
+2406                         					;lbsr 	PutChar						
+2407                         						
+2408 eed5 86 04              					lda 	#4				
+2409 eed7 6f 80              _WriteDecimal2D1:	clr 	,x+					;	Clear the 4-byte buffer.
+2410 eed9 4a                 					deca
+2411 eeda 26 fb              					bne 	_WriteDecimal2D1
+2412                         										
+2413 eedc 35 76              					puls	a,b,x,y,u
+2414                         										
+2415 eede 39                 					rts
+2416                         					
+2417                         ;	----------------------------------------------------------------------------------------------------
+2418                         ;	Write on the terminal, the content of the buffer (4-bytes) pointed by X
+2419                         ;	Print double number (including leading zeros)  pointed to by X.
+2420                         ;	Number at that location is destroyed by the process 
+2421                         ;   Works ONLY WITH X POINTING RAM ZONE !!
+2422                         
+2423 eedf 34 76              WriteDecimalBytes:	pshs	a,b,x,y,u
+2424                         							
+2425 eee1 8d 62              					bsr 	bin2bcd             ;	Convert to bcd
+2426                         
+2427 eee3 8e 00 1c                   			ldx 	#bcdbuf             ;	Traverse 5-byte buffer.
+2428 eee6 c6 05              					ldb		#5
+2429 eee8 d7 14              					stb		save1_reg8bits
+2430 eeea 0f 16              					clr		save3_reg8bits		;	count of digit printed
+2431                         				
+2432 eeec c6 30              					ldb		#'0'				;	set '0' to say previous BCD was '0'
+2433 eeee a6 80              pdloop:				lda 	,x+
+2434 eef0 34 02                                  pshs    a
+2435                         
+2436 eef2 44                 					lsra
+2437 eef3 44                 					lsra
+2438 eef4 44                 					lsra
+2439 eef5 44                 					lsra                        ;	Extract higher digit from bcd byte.
+2440                         
+2441 eef6 8b 30              					adda 	#'0'				
+2442 eef8 81 30              					cmpa	#'0'
+2443 eefa 27 09              					beq		_WriteDecimalByte1	;	A contents the '0' to display
+2444                         					
+2445 eefc 17 00 74           					lbsr	PutChar				;	A contents a character > '0'
+2446 eeff 0c 16              					inc		save3_reg8bits
+2447 ef01 1f 89              					tfr		a,b					;	Memorize the new previous is not '0'
+2448 ef03 20 09              					bra		_WriteDecimalByte2
+2449                         					
+2450 ef05 c1 30              _WriteDecimalByte1:	cmpb	#'0'				;	If B contents '0', previous char was '0' too. Not display A
+2451 ef07 27 05              					beq		_WriteDecimalByte2				
+2452 ef09 17 00 67           					lbsr     PutChar			;	Display the '0' in A, because previous char was not '0'
+2453 ef0c 0c 16              					inc		save3_reg8bits
+2454                         						
+2455 ef0e 35 02              _WriteDecimalByte2: puls    a
+2456                         
+2457 ef10 84 0f              					anda 	#$0F				;	Extract lower digit.
+2458 ef12 8b 30              					adda 	#'0'	
+2459 ef14 81 30                                  cmpa    #'0'
+2460 ef16 27 09                                  beq     _WriteDecimalByte3
+2461                         					
+2462 ef18 17 00 58           					lbsr 	PutChar
+2463 ef1b 1f 89              					tfr		a,b					;	FIX 
+2464 ef1d 0c 16              					inc		save3_reg8bits
+2465                         					
+2466 ef1f 20 09                                  bra     _WriteDecimalByte4
+2467                         
+2468 ef21 c1 30              _WriteDecimalByte3: cmpb	#'0'				;	If B contents '0', previous char was '0' too. Not display A
+2469 ef23 27 05              					beq		_WriteDecimalByte4				
+2470 ef25 17 00 4b           					lbsr     PutChar			;	Display the '0' in A, because previous char was not '0'
+2471 ef28 0c 16              					inc		save3_reg8bits
+2472                         
+2473 ef2a 0a 14              _WriteDecimalByte4:	dec	 	save1_reg8bits				
+2474 ef2c 26 c0              					bne 	pdloop
+2475                         															
+2476                         													
+2477                         					;clra	
+2478                         					;sta		0,x
+2479                         					;sta		1,x
+2480                         					;sta		2,x
+2481                         					;sta		3,x
+2482                         							
+2483 ef2e 96 16              					lda		save3_reg8bits		;	how many digit printed
+2484 ef30 81 00              					cmpa	#0					;	Zero ?
+2485 ef32 26 05              					bne		_WriteDecimalByte7	;	no, >= 1
+2486                         					
+2487 ef34 86 30              					lda		#'0'
+2488 ef36 17 00 3a           					lbsr     PutChar			;	Print at least one Zero 
+2489                         						
+2490 ef39 86 04              _WriteDecimalByte7:	lda 	#4	
+2491 ef3b 30 1c                                  leax    -4,x
+2492                                             
+2493 ef3d 6f 80              _WriteDecimalByte8:	clr 	,x+					;	Clear the 4-byte buffer.
+2494 ef3f 4a                 					deca
+2495 ef40 26 fb              					bne 	_WriteDecimalByte8
+2496                         										
+2497 ef42 35 76              					puls	a,b,x,y,u
+2498                         										
+2499 ef44 39                 					rts
+2500                         					
+2501                         ;	----------------------------------------------------------------------------------------------------
+2502                         ;	Convert 4-byte number pointed to by X to 5-byte (10 digit) bcd.
+2503                         
+2504 ef45 ce 00 1c           bin2bcd:			ldu 	#bcdbuf
+2505                         
+2506 ef48 c6 05              					ldb 	#5				
+2507 ef4a 6f c0              bbclr:				clr 	,u+				;Clear the 5-byte bcd buffer.
+2508 ef4c 5a                 					decb
+2509 ef4d 26 fb              					bne 	bbclr
+2510                         					
+2511 ef4f c6 04              					ldb 	#4				;traverse 4 bytes of bin number 
+2512 ef51 d7 14              					stb 	save1_reg8bits
+2513                         					
+2514 ef53 c6 08              bbloop:				ldb 	#8				;and 8 bits of each byte. (msb to lsb)
+2515 ef55 d7 15              					stb 	save2_reg8bits
+2516 ef57 69 84              bbl1:				rol 	,x				;Extract next bit from binary number.
+2517                         
+2518 ef59 c6 05              					ldb 	#5
+2519 ef5b ce 00 21           					ldu 	#bcdbuf+5
+2520 ef5e a6 c2              bbl2:				lda 	,-u				;multiply bcd number by 2 and add extracted bit
+2521 ef60 a9 c4              					adca 	,u				;into it. 
+2522 ef62 19                 					daa
+2523 ef63 a7 c4              					sta 	,u
+2524                         					
+2525 ef65 5a                 					decb
+2526 ef66 26 f6              					bne 	bbl2
+2527                         					
+2528 ef68 0a 15              					dec 	save2_reg8bits
+2529 ef6a 26 eb              					bne 	bbl1
+2530                         					
+2531 ef6c 30 01              					leax 	1,x
+2532 ef6e 0a 14              					dec 	save1_reg8bits
+2533 ef70 26 e1              					bne 	bbloop
+2534                         					
+2535 ef72 39                 					rts
+2536                         	
+2537                         ;	----------------------------------------------------------------------------------------------------
+2538                         ; send to the UART the content of register A
+2539 ef73 34 02              PutChar				pshs	a
+2540 ef75 b6 d0 00           _PutChar1			lda		Uart
+2541 ef78 85 02              					bita	#$02
+2542 ef7a 27 f9              					beq		_PutChar1
+2543 ef7c 35 02              					puls	a
+2544 ef7e b7 d0 01           					sta		UartTDR
+2545 ef81 39                 					rts
+2546                         
+2547                         ;	----------------------------------------------------------------------------------------------------
+2548                         ; Wait and get from the Uart a new char in register A
+2549 ef82 b6 d0 00           GetCharUntil:		lda		Uart
+2550 ef85 85 01              					bita	#$01
+2551 ef87 27 f9              					beq		GetCharUntil
+2552                         					
+2553 ef89 b6 d0 01                               lda		UartRDR                 ;   read the char
+2554                                             
+2555 ef8c 81 61                                  cmpa    #'a'                    ;   is the char >= 'a' ?
+2556 ef8e 2c 02                                  bge     _GetCharUntil1          ;   yes
+2557 ef90 20 08                                  bra     GetCharUntilEnd
+2558                                                 
+2559 ef92 81 7a              _GetCharUntil1:     cmpa    #'z'                    ;   is the char <= 'z'
+2560 ef94 2f 02                                  ble     _GetCharUntil2          ;   yes
+2561 ef96 20 02                                  bra     GetCharUntilEnd
+2562                                             
+2563 ef98 80 20              _GetCharUntil2:     suba    #32                     ;   usbstract 32 to have uppercase
+2564                                             
+2565 ef9a 39                 GetCharUntilEnd:	rts
+2566                         
+2567                         ;	----------------------------------------------------------------------------------------------------
+2568                         ; Try to get from the Uart a new char in register A 
+2569                         ;	CCR.Z = 1 if new char
+2570                         
+2571 ef9b b6 d0 00           GetChar:			lda		Uart				
+2572 ef9e 85 01              					bita	#$01
+2573 efa0 27 06              					beq		GetCharFailed
+2574                         										
+2575 efa2 b6 d0 01           					lda		Uart+1
+2576 efa5 1a 04              					orcc	#$04					;	set bit Z	
+2577 efa7 39                 					rts
+2578                         					
+2579 efa8 1c fb              GetCharFailed:		andcc	#$FB					;	clear bit Z	
+2580 efaa 39                 					rts
+2581                         
+2582                         ;	----------------------------------------------------------------------------------------------------
+2583                         ;;; read hex digits from the string in X into a 16-bit integer
+2584                         ;;; stops after the first invalid character
+2585                         ;;; arguments:	string pointer in X
+2586                         ;;; returns:	value in D
+2587                         ;;; destroys:	X advanced
+2588 efab cc 00 00           ReadHexFromString:	ldd		#$0000
+2589 efae 34 06              					pshs	d			;	temporary result is on stack
+2590 efb0 e6 80              readhexdigit:		ldb		,x+			;	get a character
+2591 efb2 c1 30              					cmpb	#'0'		;	is it a decimal digit?
+2592 efb4 25 34              					blo		nothex
+2593 efb6 c1 39              					cmpb	#'9'
+2594 efb8 22 04              					bhi		testaf
+2595 efba c0 30              					subb	#'0'		;	it's a decimal digit
+2596 efbc 20 16              					bra		addhexdigit	;	we're good
+2597 efbe c1 41              testaf:				cmpb	#'A'		;	is it between A and F?
+2598 efc0 25 28              					blo		nothex
+2599 efc2 c1 46              					cmpb	#'F'
+2600 efc4 22 04              					bhi		testaflower
+2601 efc6 c0 37              					subb	#55
+2602 efc8 20 0a              					bra		addhexdigit
+2603 efca c1 61              testaflower:		cmpb	#'a'
+2604 efcc 25 1c              					blo		nothex
+2605 efce c1 66              					cmpb	#'f'
+2606 efd0 22 18              					bhi		nothex
+2607 efd2 c0 57              					subb	#87
+2608 efd4 68 61              addhexdigit:		lsl		1,s		;	multiply temporary by 16
+2609 efd6 69 e4              					rol		,s
+2610 efd8 68 61              					lsl		1,s
+2611 efda 69 e4              					rol		,s
+2612 efdc 68 61              					lsl		1,s
+2613 efde 69 e4              					rol		,s
+2614 efe0 68 61              					lsl		1,s
+2615 efe2 69 e4              					rol		,s
+2616 efe4 ea 61              					orb		1,s			;	or digit into lower nibble
+2617 efe6 e7 61              					stb		1,s
+2618 efe8 20 c6              					bra		readhexdigit
+2619 efea 30 1f              nothex:				leax	-1,x		;	back up x
+2620 efec 35 06              					puls	d			;	pop result into D
+2621 efee 1c fd              					andcc	#$FD		;	clear V
+2622 eff0 39                 					rts
+2623                         
+2624                         ;	----------------------------------------------------------------------------------------------------
+2625                         ;	Memory test
+2626                         
+2627 eff1 34 12              MemTest:			pshs	a,x
+2628 eff3 9e 02              					ldx		RamTop
+2629                         					
+2630 eff5 8c 00 00           MMloop1:			cmpx	#$0000
+2631 eff8 27 0f              					beq		MMSuccess
+2632                         					
+2633 effa a6 84              					lda  	0,x
+2634 effc 43                 					coma                			
+2635 effd a7 84              					sta  	0,x
+2636 efff a1 84              					cmpa 	0,x            				
+2637 f001 26 0f              					bne  	MMError        				
+2638                         										       			
+2639 f003 63 84              					com  	0,x            				
+2640 f005 30 1f              					leax 	-1,x     
+2641 f007 20 ec              					bra  	MMloop1
+2642                         
+2643 f009 8e f3 13           MMSuccess:  		ldx		#STRDone
+2644 f00c 17 fd da           					lbsr	WriteString
+2645 f00f 35 12              					puls	a,x
+2646 f011 39                 					rts
+2647                         					
+2648 f012 8e f3 29           MMError:  			ldx		#STRFailed
+2649 f015 17 fd d1           					lbsr	WriteString					
+2650 f018 35 12              					puls	a,x
+2651 f01a 39                 					rts
+2652                         
+2653                         ;	----------------------------------------------------------------------------------------------------
+2654                         ;	
+2655 f01b 17 ff 64           GetHexDigit:		lbsr	GetCharUntil					
+2656 f01e 81 41              					cmpa	#'A'
+2657                         
+2658 f020 2d 04              					blt		_GetHexDigit1
+2659                                             
+2660 f022 80 37              					suba	#55
+2661 f024 20 02              					bra		_GetHexDigitEnd
+2662                         					
+2663 f026 80 30              _GetHexDigit1:		suba	#48
+2664                         					
+2665                         										
+2666 f028 84 0f              _GetHexDigitEnd:	anda	#$0F
+2667 f02a 39                 					rts
+2668                         					
+2669                         ;	----------------------------------------------------------------------------------------------------
+2670                         ;	Load code from text hex. file on serial port
+2671                         ;	Y = start address
+2672 f02b 8d ee              LoadCodeSerial:		bsr		GetHexDigit							;	first byte MSB for length 
+2673 f02d 48                 					lsla
+2674 f02e 48                 					lsla
+2675 f02f 48                 					lsla
+2676 f030 48                 					lsla
+2677 f031 97 14              					sta		save1_reg8bits						;	save 
+2678                         					
+2679 f033 8d e6              					bsr		GetHexDigit							;	first byte LSB for length
+2680 f035 9a 14              					ora		save1_reg8bits
+2681 f037 97 14              					sta		save1_reg8bits						;	save 
+2682                         					
+2683 f039 17 fe 42                               lbsr    WriteHexByte
+2684                         
+2685 f03c 8d dd              					bsr		GetHexDigit							;	second byte MSB for length 
+2686 f03e 48                 					lsla
+2687 f03f 48                 					lsla
+2688 f040 48                 					lsla
+2689 f041 48                 					lsla
+2690 f042 97 15              					sta		save2_reg8bits						;	save 
+2691                         					
+2692                                             
+2693 f044 8d d5              					bsr		GetHexDigit							;	second byte LSB for length
+2694 f046 9a 15              					ora		save2_reg8bits
+2695                         					
+2696 f048 17 fe 33                               lbsr    WriteHexByte
+2697                                             
+2698 f04b 1f 89              					tfr		a,b
+2699 f04d 96 14              					lda		save1_reg8bits						;	read back the MSB
+2700                         					
+2701 f04f 1f 01              					tfr		d,x									;	X contents now the length
+2702                         					
+2703 f051 8c 00 00           _LoadCodeSerial1:	cmpx	#$0000
+2704 f054 27 15              					beq		_LoadCodeSerial2
+2705                         					
+2706 f056 8d c3              					bsr		GetHexDigit							;	first byte MSB for byte data 
+2707 f058 48                 					lsla
+2708 f059 48                 					lsla
+2709 f05a 48                 					lsla
+2710 f05b 48                 					lsla
+2711 f05c 97 14              					sta		save1_reg8bits						;	save 
+2712                         					
+2713 f05e 8d bb              					bsr		GetHexDigit							;	first byte LSB for byte data 
+2714 f060 9a 14              					ora		save1_reg8bits						;	Now A content the complete byte
+2715                         					
+2716 f062 17 fe 19                               lbsr    WriteHexByte
+2717                         
+2718 f065 a7 a0              					sta		0,y+								;	store the byte to the location
+2719                         					
+2720 f067 30 1f              					leax	-1,x								;	count to upload - 1
+2721 f069 20 e6              					bra		_LoadCodeSerial1
+2722                         					
+2723 f06b 8e f0 e1           _LoadCodeSerial2:	ldx		#STRNewLine
+2724 f06e 17 fd 78           					lbsr	WriteString
+2725                                             
+2726 f071 8e f3 13                               ldx		#STRDone
+2727 f074 17 fd 72           					lbsr	WriteString
+2728                         					
+2729 f077 39                 					rts
+2730                         
+2731                         ;	----------------------------------------------------------------------------------------------------
+2732                         ;	SWI Software Interrupt: Display registers on Console
+2733                         
+2734 f078 8e f3 4d           Vector_swi:			ldx		#system_sw1
+2735 f07b 17 fd 6b           					lbsr	WriteString
+2736                         
+2737 f07e 3b                 					rti
+2738                         
+2739                         ;	----------------------------------------------------------------------------------------------------
+2740                         ;	Interrupt handler
+2741                         Vector_irq:			
+2742 f07f 8e f3 32           					ldx		#system_irq
+2743 f082 17 fd 64           					lbsr	WriteString
+2744                         					
+2745 f085 3b                 					rti
+2746                         ;	----------------------------------------------------------------------------------------------------
+2747                         ;	Interrupt handler
+2748                         Vector_firq:		
+2749 f086 8e f3 3c           					ldx		#system_firq
+2750 f089 17 fd 5d           					lbsr	WriteString
+2751                         					
+2752 f08c 3b                 					rti
+2753                         ;	----------------------------------------------------------------------------------------------------
+2754                         ;	Interrupt handler
+2755                         Vector_nmi:
+2756 f08d 8e f3 45           					ldx		#system_nmi
+2757 f090 17 fd 56           					lbsr	WriteString
+2758                         					
+2759 f093 3b                 					rti
+2760                         ;	----------------------------------------------------------------------------------------------------
+2761                         ;	Interrupt handler
+2762                         Vector_swi2:		
+2763 f094 8e f3 55           					ldx		#system_sw2
+2764 f097 17 fd 4f           					lbsr	WriteString
+2765                         					
+2766 f09a 3b                 					rti
+2767                         ;	----------------------------------------------------------------------------------------------------
+2768                         ;	Interrupt handler
+2769                         Vector_swi3:		
+2770 f09b 8e f3 5d           					ldx		#system_sw3
+2771 f09e 17 fd 48           					lbsr	WriteString
+2772                         					
+2773 f0a1 3b                 					rti
+2774                         ;	----------------------------------------------------------------------------------------------------
+2775                         ;	Interrupt handler reserved for Motorola
+2776                         Vector_reserved:	
+2777 f0a2 3b                 					rti
+2778                         
+2779                         ;	----------------------------------------------------------------------------------------------------
+2780                         ;   remember:
+2781                         ;   \015 = $0D  return
+2782                         ;   \012 = $0A  newline
+2783                         
+2784 f0a3 1b 45 52 65 64 42  STRSystemStart		fcc	"\033ERedBoard 6809, EKMonitor by Favard Laurent 2003/2015\015\012\0"
+     6f 61 72 64 20 36
+     38 30 39 2c 20 45
+     4b 4d 6f 6e 69 74
+     6f 72 20 62 79 20
+     46 61 76 61 72 64
+     20 4c 61 75 72 65
+     6e 74 20 32 30 30
+     33 2f 32 30 31 35
+     0d 0a 00
+2785 f0dc 43 4c 49 3e 00     STRPromptCLI		fcc	"CLI>\0"
+2786 f0e1 0d 0a 00           STRNewLine			fcc	"\015\012\0"
+2787 f0e4 1b 45 00           STRClear            fcc "\033E\0"
+2788 f0e7 45 6e 64 20 6f 66  STRMemCalculated	fcc	"End of memory: $\0"
+     20 6d 65 6d 6f 72
+     79 3a 20 24 00
+2789                         ;STRMemSize			fcc "Size bytes: $\0"
+2790 f0f8 41 76 61 69 6c 61  STRMemSize1			fcc "Available: \0"
+     62 6c 65 3a 20 00
+2791 f104 20 62 79 74 65 73  STRMemSize2			fcc " bytes\015\012\0"
+     0d 0a 00
+2792 f10d 52 65 61 64 79 0d  STRSystemReady		fcc	"Ready\015\012\0"
+     0a 00
+2793 f115 56 65 72 73 69 6f  STRVersion			fcc	"Version: \0"
+     6e 3a 20 00
+2794 f11f 44 69 61 67 43 61  STRDiagCartOk		fcc	"DiagCartridge inserted\015\012\0"
+     72 74 72 69 64 67
+     65 20 69 6e 73 65
+     72 74 65 64 0d 0a
+     00
+2795 f138 41 75 74 6f 43 61  STRAutCartOk		fcc	"AutoCartridge inserted\015\012\0"
+     72 74 72 69 64 67
+     65 20 69 6e 73 65
+     72 74 65 64 0d 0a
+     00
+2796 f151 41 70 70 6c 43 61  STRAppCartOk		fcc	"ApplCartridge inserted\015\012\0"
+     72 74 72 69 64 67
+     65 20 69 6e 73 65
+     72 74 65 64 0d 0a
+     00
+2797 f16a 54 65 73 74 20 72  STRMemTest			fcc "Test running...\015\012\0"
+     75 6e 6e 69 6e 67
+     2e 2e 2e 0d 0a 00
+2798 f17c 4c 69 73 74 20 6f  STRList				fcc	"List of applications:\015\012\0"
+     66 20 61 70 70 6c
+     69 63 61 74 69 6f
+     6e 73 3a 0d 0a 00
+2799 f194 4e 6f 20 61 70 70  STRListFailed		fcc	"No applications cartridge\015\012\0"
+     6c 69 63 61 74 69
+     6f 6e 73 20 63 61
+     72 74 72 69 64 67
+     65 0d 0a 00
+2800 f1b0 42 41 53 49 43 20  STRBasic			fcc	"BASIC running\015\012\0"
+     72 75 6e 6e 69 6e
+     67 0d 0a 00
+2801 f1c0 43 6f 75 6e 74 3a  STRCountApp			fcc	"Count: \0"
+     20 00
+2802 f1c8 4c 6f 61 64 69 6e  STRLoading			fcc	"Loading: at $\0"
+     67 3a 20 61 74 20
+     24 00
+2803                         ;	----------------------------------------------------------------------------------------------------
+2804 f1d6 49 6e 20 74 72 69  STRTribute          fcc "In tribute to:\015\012"
+     62 75 74 65 20 74
+     6f 3a 0d 0a
+2805 f1e6 4a 61 63 6b 20 54                      fcc "Jack Tramiel, Commodore and Atari, 1928-2012\015\012"
+     72 61 6d 69 65 6c
+     2c 20 43 6f 6d 6d
+     6f 64 6f 72 65 20
+     61 6e 64 20 41 74
+     61 72 69 2c 20 31
+     39 32 38 2d 32 30
+     31 32 0d 0a
+2806 f214 53 74 65 76 65 20                      fcc "Steve Jobs, Apple Computers 1955-2011\015\012"
+     4a 6f 62 73 2c 20
+     41 70 70 6c 65 20
+     43 6f 6d 70 75 74
+     65 72 73 20 31 39
+     35 35 2d 32 30 31
+     31 0d 0a
+2807 f23b 44 65 6e 6e 69 73  					fcc	"Dennis Ritchie, Langage C 1941-2011\015\012"
+     20 52 69 74 63 68
+     69 65 2c 20 4c 61
+     6e 67 61 67 65 20
+     43 20 31 39 34 31
+     2d 32 30 31 31 0d
+     0a
+2808 f260 47 61 72 79 20 4b                      fcc "Gary Kildall, Digital Research, 1942-1994\015\012"
+     69 6c 64 61 6c 6c
+     2c 20 44 69 67 69
+     74 61 6c 20 52 65
+     73 65 61 72 63 68
+     2c 20 31 39 34 32
+     2d 31 39 39 34 0d
+     0a
+2809 f28b 4e 6f 6c 61 6e 20                      fcc "Nolan Bushnell, Atari founder\015\012"
+     42 75 73 68 6e 65
+     6c 6c 2c 20 41 74
+     61 72 69 20 66 6f
+     75 6e 64 65 72 0d
+     0a
+2810 f2aa 53 74 65 76 65 20  					fcc "Steve Wozniak, Apple Computers\015\012"
+     57 6f 7a 6e 69 61
+     6b 2c 20 41 70 70
+     6c 65 20 43 6f 6d
+     70 75 74 65 72 73
+     0d 0a
+2811 f2ca 41 6e 64 20 74 6f  					fcc "And to Motorola, MOS Technology, Rockwell,...\015\012\0"
+     20 4d 6f 74 6f 72
+     6f 6c 61 2c 20 4d
+     4f 53 20 54 65 63
+     68 6e 6f 6c 6f 67
+     79 2c 20 52 6f 63
+     6b 77 65 6c 6c 2c
+     2e 2e 2e 0d 0a 00
+2812                                             
+2813                         ;	----------------------------------------------------------------------------------------------------
+2814 f2fa 53 6f 72 72 79 20  STRSorry            fcc	"Sorry ?\015\012\0"
+     3f 0d 0a 00
+2815 f304 53 79 6e 74 61 78  STRSyntErr       	fcc	"Syntax error\015\012\0"
+     20 65 72 72 6f 72
+     0d 0a 00
+2816 f313 4f 6b 0d 0a 00     STRDone				fcc	"Ok\015\012\0"
+2817 f318 48 6f 77 20 3f 0d  STRHow				fcc	"How ?\015\012\0"
+     0a 00
+2818 f320 57 68 61 74 20 3f  STRWhat				fcc	"What ?\015\012\0"
+     0d 0a 00
+2819 f329 46 61 69 6c 65 64  STRFailed			fcc	"Failed\015\012\0"
+     0d 0a 00
+2820                         ;	----------------------------------------------------------------------------------------------------
+2821 f332 49 52 51 20 21 30  system_irq			fcc	"IRQ !015\012\0"
+     31 35 0a 00
+2822 f33c 46 49 52 51 20 21  system_firq			fcc	"FIRQ !\015\012\0"
+     0d 0a 00
+2823 f345 4e 4d 49 20 21 0d  system_nmi			fcc	"NMI !\015\012\0"
+     0a 00
+2824 f34d 53 57 31 20 21 0d  system_sw1			fcc	"SW1 !\015\012\0"
+     0a 00
+2825 f355 53 57 32 20 21 0d  system_sw2			fcc	"SW2 !\015\012\0"
+     0a 00
+2826 f35d 53 57 33 20 21 0d  system_sw3			fcc	"SW3 !\015\012\0"
+     0a 00
+2827                         ;	----------------------------------------------------------------------------------------------------
+2828 f365 1b 45              STRHelp				fcc "\033E"
+2829 f367 5b 48 45 4c 50 2f                      fcc "[HELP/?] : Commands list\015\012"
+     3f 5d 20 3a 20 43
+     6f 6d 6d 61 6e 64
+     73 20 6c 69 73 74
+     0d 0a
+2830 f381 5b 43 4c 53 5d 20                      fcc "[CLS]    : CLear Screen\015\012"
+     20 20 20 3a 20 43
+     4c 65 61 72 20 53
+     63 72 65 65 6e 0d
+     0a
+2831 f39a 5b 56 45 52 5d 20  					fcc	"[VER]    : VERsion\015\012"
+     20 20 20 3a 20 56
+     45 52 73 69 6f 6e
+     0d 0a
+2832 f3ae 5b 4d 45 4d 53 49  					fcc	"[MEMSIZE]: Memory size\015\012"
+     5a 45 5d 3a 20 4d
+     65 6d 6f 72 79 20
+     73 69 7a 65 0d 0a
+2833 f3c6 5b 4c 49 53 54 5d  					fcc	"[LIST]   : LIST contents of App Cartridge\015\012"
+     20 20 20 3a 20 4c
+     49 53 54 20 63 6f
+     6e 74 65 6e 74 73
+     20 6f 66 20 41 70
+     70 20 43 61 72 74
+     72 69 64 67 65 0d
+     0a
+2834 f3f1 5b 52 55 4e 5d 20  					fcc "[RUN]    : RUN <AE> Run a program\015\012"
+     20 20 20 3a 20 52
+     55 4e 20 3c 41 45
+     3e 20 52 75 6e 20
+     61 20 70 72 6f 67
+     72 61 6d 0d 0a
+2835 f414 5b 4c 4f 41 44 5d  					fcc "[LOAD]   : LOAD <AE> Load a program\015\012"
+     20 20 20 3a 20 4c
+     4f 41 44 20 3c 41
+     45 3e 20 4c 6f 61
+     64 20 61 20 70 72
+     6f 67 72 61 6d 0d
+     0a
+2836 f439 5b 50 45 45 4b 5d  					fcc	"[PEEK]   : READ <AE>\015\012"
+     20 20 20 3a 20 52
+     45 41 44 20 3c 41
+     45 3e 0d 0a
+2837 f44f 5b 50 4f 4b 45 5d  					fcc	"[POKE]   : WRITE <byte>,<AE>\015\012"
+     20 20 20 3a 20 57
+     52 49 54 45 20 3c
+     62 79 74 65 3e 2c
+     3c 41 45 3e 0d 0a
+2838 f46d 5b 44 55 4d 50 5d  					fcc	"[DUMP]   : DUMP <byte>,<AE>\015\012"
+     20 20 20 3a 20 44
+     55 4d 50 20 3c 62
+     79 74 65 3e 2c 3c
+     41 45 3e 0d 0a
+2839 f48a 5b 43 4f 50 59 5d  					fcc	"[COPY]   : COPY <byte>,<SAE>,<DAE>\015\012"
+     20 20 20 3a 20 43
+     4f 50 59 20 3c 62
+     79 74 65 3e 2c 3c
+     53 41 45 3e 2c 3c
+     44 41 45 3e 0d 0a
+2840 f4ae 5b 4f 52 49 5d 20  					fcc	"[ORI]    : ORI <mask>,<AE>\015\012"
+     20 20 20 3a 20 4f
+     52 49 20 3c 6d 61
+     73 6b 3e 2c 3c 41
+     45 3e 0d 0a
+2841 f4ca 5b 41 4e 44 49 5d  					fcc	"[ANDI]   : ANDI <mask>,<AE>\015\012"
+     20 20 20 3a 20 41
+     4e 44 49 20 3c 6d
+     61 73 6b 3e 2c 3c
+     41 45 3e 0d 0a
+2842 f4e7 5b 42 53 45 54 5d  					fcc	"[BSET]   : BSET [0-7],<AE>\015\012"
+     20 20 20 3a 20 42
+     53 45 54 20 5b 30
+     2d 37 5d 2c 3c 41
+     45 3e 0d 0a
+2843 f503 5b 42 43 4c 52 5d  					fcc	"[BCLR]   : BCLR [0-7],<AE>\015\012"
+     20 20 20 3a 20 42
+     43 4c 52 20 5b 30
+     2d 37 5d 2c 3c 41
+     45 3e 0d 0a
+2844 f51f 5b 53 45 54 50 49  					fcc	"[SETPIA] : PIA set A/B,[I/O]\015\012"
+     41 5d 20 3a 20 50
+     49 41 20 73 65 74
+     20 41 2f 42 2c 5b
+     49 2f 4f 5d 0d 0a
+2845 f53d 5b 52 44 50 49 41  					fcc	"[RDPIA]  : PIA Read A/B\015\012"
+     5d 20 20 3a 20 50
+     49 41 20 52 65 61
+     64 20 41 2f 42 0d
+     0a
+2846 f556 5b 57 52 50 49 41  					fcc	"[WRPIA]  : PIA Write <byte>,A/B\015\012"
+     5d 20 20 3a 20 50
+     49 41 20 57 72 69
+     74 65 20 3c 62 79
+     74 65 3e 2c 41 2f
+     42 0d 0a
+2847 f577 5b 53 57 31 2f 32  					fcc	"[SW1/2/3]: SW interrupt\015\012"
+     2f 33 5d 3a 20 53
+     57 20 69 6e 74 65
+     72 72 75 70 74 0d
+     0a
+2848 f590 5b 4d 45 4d 54 45  					fcc	"[MEMTEST]: MEMory TEST\015\012"
+     53 54 5d 3a 20 4d
+     45 4d 6f 72 79 20
+     54 45 53 54 0d 0a
+2849 f5a8 5b 42 41 53 49 43                      fcc	"[BASIC]  : TinyBasic\015\012\0"
+     5d 20 20 3a 20 54
+     69 6e 79 42 61 73
+     69 63 0d 0a 00
+2850                         ;	----------------------------------------------------------------------------------------------------
+2851 f5bf 3f 00              CMDHelp				fcc "?\0"
+2852 f5c1 48 45 4c 50 00     CMDHelp2			fcc "HELP\0"
+2853 f5c6 56 45 52 00        CMDVersion			fcc "VER\0"
+2854 f5ca 4d 45 4d 53 49 5a  CMDMemSize			fcc	"MEMSIZE\0"
+     45 00
+2855 f5d2 43 4c 53 00        CMDClear			fcc "CLS\0"
+2856 f5d6 4c 49 53 54 00     CMDList				fcc "LIST\0"
+2857 f5db 52 55 4e 00        CMDRun				fcc "RUN\0"
+2858 f5df 50 45 45 4b 00     CMDRead				fcc "PEEK\0"
+2859 f5e4 50 4f 4b 45 00     CMDWrite			fcc "POKE\0"
+2860 f5e9 53 57 31 00        CMDSw1				fcc "SW1\0"
+2861 f5ed 53 57 32 00        CMDSw2				fcc "SW2\0"
+2862 f5f1 53 57 33 00        CMDSw3				fcc "SW3\0"
+2863 f5f5 4f 52 49 00        CMDOri				fcc "ORI\0"
+2864 f5f9 41 4e 44 49 00     CMDAndi				fcc "ANDI\0"
+2865 f5fe 42 53 45 54 00     CMDBset				fcc "BSET\0"
+2866 f603 42 43 4c 52 00     CMDBclr				fcc "BCLR\0"
+2867 f608 44 55 4d 50 00     CMDDump				fcc "DUMP\0"
+2868 f60d 43 4f 50 59 00     CMDCopy				fcc "COPY\0"
+2869 f612 53 45 54 50 49 41  CMDPIADR			fcc	"SETPIA\0"
+     00
+2870 f619 52 44 50 49 41 00  CMDPIARD			fcc	"RDPIA\0"
+2871 f61f 57 52 50 49 41 00  CMDPIAWR			fcc	"WRPIA\0"
+2872 f625 4d 45 4d 54 45 53  CMDMemTest			fcc "MEMTEST\0"
+     54 00
+2873 f62d 42 41 53 49 43 00  CMDBasic			fcc "BASIC\0"
+2874 f633 4c 4f 41 44 00     CMDLoad				fcc "LOAD\0"
+2875 f638 54 48 41 4e 4b 53  CMDTribute          fcc "THANKS\0"
+     00
+2876                         ;	----------------------------------------------------------------------------------------------------
+2877                         ;	Jmp table for CLI commands
+2878 f63f f5 bf              DispatchCommands	fdb 	CMDHelp
+2879 f641 e1 83              					fdb		mnHelp
+2880 f643 f5 c1              					fdb 	CMDHelp2
+2881 f645 e1 83              					fdb		mnHelp
+2882 f647 f5 c6              					fdb 	CMDVersion
+2883 f649 e1 95              					fdb		mnVersion
+2884 f64b f5 ca              					fdb		CMDMemSize
+2885 f64d e1 c2              					fdb		mnMemSize
+2886 f64f f5 d2              					fdb 	CMDClear
+2887 f651 e5 f7              					fdb		mnClear
+2888 f653 f5 d6              					fdb		CMDList
+2889 f655 e1 df              					fdb		mnList
+2890 f657 f5 db              					fdb		CMDRun
+2891 f659 e2 a8              					fdb		mnRun
+2892 f65b f5 df              					fdb 	CMDRead
+2893 f65d e2 d7              					fdb		mnRead
+2894 f65f f5 e4              					fdb 	CMDWrite
+2895 f661 e3 01              					fdb		mnWrite
+2896 f663 f5 e9              					fdb 	CMDSw1
+2897 f665 e4 57              					fdb		mnSw1
+2898 f667 f5 ed              					fdb 	CMDSw2
+2899 f669 e4 5b              					fdb		mnSw2
+2900 f66b f5 f1              					fdb 	CMDSw3
+2901 f66d e4 60              					fdb		mnSw3
+2902 f66f f5 f5              					fdb 	CMDOri
+2903 f671 e3 fe              					fdb		mnOri
+2904 f673 f5 f9              					fdb 	CMDAndi
+2905 f675 e4 2c              					fdb		mnAndi
+2906 f677 f5 fe              					fdb 	CMDBset
+2907 f679 e4 65              					fdb		mnBset
+2908 f67b f6 03              					fdb 	CMDBclr
+2909 f67d e4 af              					fdb		mnBclr
+2910 f67f f6 08              					fdb 	CMDDump
+2911 f681 e3 2d              					fdb		mnDump
+2912 f683 f6 0d              					fdb 	CMDCopy
+2913 f685 e3 ae              					fdb		mnCopy
+2914 f687 f6 12              					fdb		CMDPIADR
+2915 f689 e4 f9              					fdb		mnPiadr
+2916 f68b f6 19              					fdb		CMDPIARD
+2917 f68d e5 69              					fdb		mnPiard
+2918 f68f f6 1f              					fdb		CMDPIAWR
+2919 f691 e5 ab              					fdb		mnPiawr
+2920 f693 f6 25              					fdb 	CMDMemTest
+2921 f695 e5 eb              					fdb		mnMemTest
+2922 f697 f6 2d              					fdb 	CMDBasic
+2923 f699 e6 00              					fdb		mnBasic
+2924 f69b f6 33              					fdb 	CMDLoad
+2925 f69d e2 b5              					fdb		mnLoad
+2926 f69f f6 38                                  fdb 	CMDTribute
+2927 f6a1 e1 8c              					fdb		mnTribute
+2928 f6a3 00 00              					fdb		$0000						;	end of table
+2929                                             
+2930                         ;	----------------------------------------------------------------------------------------------------
+2931                         ;	Monitor functions table exported
+2932 f6a5 ef 73              FunctionsTable		fdb		PutChar
+2933 f6a7 ee b4              					fdb		PutHexChar
+2934 f6a9 ef 9b              					fdb		GetChar
+2935 f6ab ef 82              					fdb		GetCharUntil
+2936 f6ad ee 7e              					fdb		WriteHexByte
+2937 f6af ee 90              					fdb		WriteBinByte
+2938 f6b1 ed e9              					fdb		WriteString
+2939 f6b3 ed f7              					fdb		ReadString
+2940 f6b5 ef ab              					fdb		ReadHexFromString
+2941 f6b7 00 00              					fdb		$0000						;	end of table
+2942                                             
+2943                         ;	----------------------------------------------------------------------------------------------------
+2944                         ;   Jmp table to vectors stored in RAM, excepted RESET
+2945                         
+2946 f6b9 6e 9f 00 04        JmpSwi3:            jmp    [Swi3Vector]
+2947 f6bd 6e 9f 00 06        JmpSwi2:            jmp    [Swi2Vector]
+2948 f6c1 6e 9f 00 08        JmpFirq:            jmp    [FirqVector]
+2949 f6c5 6e 9f 00 0a        JmpIrq:             jmp    [IrqVector]
+2950 f6c9 6e 9f 00 0c        JmpSwi:             jmp    [SwiVector]
+2951 f6cd 6e 9f 00 0e        JmpNmi:             jmp    [NmiVector]
+2952                         
+2953                         ;	----------------------------------------------------------------------------------------------------
+2954                         ;	System vector specification
+2955                         					
+2956 f6d1                    					spaceto ROMVectors				; special LFD directive: fill from last PC = * to here 
+2957 fff0                    					org	ROMVectors
+2958                         Vectors:			
+2959 fff0 f0 a2              					fdb		Vector_reserved		
+2960 fff2 f6 b9              					fdb		JmpSwi3
+2961 fff4 f6 bd              					fdb		JmpSwi2
+2962 fff6 f6 c5              					fdb		JmpIrq
+2963 fff8 f6 c5              					fdb		JmpIrq
+2964 fffa f6 c9              					fdb		JmpSwi
+2965 fffc f6 cd              					fdb		JmpNmi
+2966 fffe e0 00              					fdb		RomStart            
+2967                         
+2968                         					end
+2969                         
+2970                         ;	----------------------------------------------------------------------------------------------------
+2971                         ;
+2972                         ;	Global Memory Map (RedBoard 6809)
+2973                         ;
+2974                         ;	+---------------+
+2975                         ;	|               | $FFFF 
+2976                         ;	| Boot          |		8 Kb
+2977                         ;	| ROM           | $E000
+2978                         ;	+---------------+ 
+2979                         ;	|               | $DFFF
+2980                         ;	|  IO devices   |		4 kb
+2981                         ;	|...............|
+2982                         ;	|  PIA 6821     | $D004 - $D007 (4 registers)
+2983                         ;	|...............|
+2984                         ;	|  ACIA 6850    | $D000 - $D001 (2 registers)
+2985                         ;	+---------------+ 
+2986                         ;	|               | $CFFF
+2987                         ;	|               |		4 kb
+2988                         ;	|               | $C000
+2989                         ;	+---------------+ 
+2990                         ;	|               | $BFFF
+2991                         ;	|               |
+2992                         ;	|               |		16 kB
+2993                         ;	|               |
+2994                         ;	|               | $8000
+2995                         ;	+---------------+
+2996                         ;	| Ram Monitor   | $7FFF
+2997                         ;	|...............|
+2998                         ;	|               |
+2999                         ;	|               |
+3000                         ;	|               |
+3001                         ;	|               |
+3002                         ;	|               |
+3003                         ;	|               |
+3004                         ;	|               |
+3005                         ;	|               |
+3006                         ;	|               |
+3007                         ;	|               |
+3008                         ;	|               |
+3009                         ;	|               |
+3010                         ;	|               |
+3011                         ;	| User          |		32 Kb
+3012                         ;	| RAM           |
+3013                         ;	|               |
+3014                         ;	|...............|
+3015                         ;	| Ram Monitor   |
+3016                         ;	+---------------+ $0000 
+3017                         ;
+3018                         ;
+3019                         ;
+3020                         ;
+3021                         ;

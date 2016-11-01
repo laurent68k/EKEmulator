@@ -1,0 +1,56 @@
+0001                         ;
+0002                         ;	Example of Diagnostic Cartridge for ReadBoard 6809
+0003                         ;	Created:	2012/09/04	Laurent68k
+0004                         ;	Updated:	2013/03/22
+0005                         ;
+0006                         ;
+0007                         ;	CCR:	7 6 5 4 3 2 1 0
+0008                         ;			E F H I N Z V C
+0009                         
+0010                         ;	----------------------------------------------------------------------------------------------------
+0011                         
+0012 8000                    RomCartidgeStart	equ		$8000
+0013 e000                    MonitorStart		equ		$E000
+0014                         ;	----------------------------------------------------------------------------------------------------
+0015                         ;	Offsets in ROM header
+0016 0002                    CPUCode				equ		2
+0017 0006                    Version				equ		6
+0018 0008                    Date				equ		8
+0019 000c                    OffTableRoutines	equ		12
+0020                         ;	----------------------------------------------------------------------------------------------------
+0021                         ;	Offsets of subroutines in functions's Monitor
+0022 0000                    PutChar				equ		0
+0023 0002                    PutHexChar			equ		PutChar+2
+0024 0004                    GetChar				equ		PutHexChar+2
+0025 0006                    GetCharUntil		equ		GetChar+2
+0026 0008                    WriteHexByte		equ		GetCharUntil+2
+0027 000a                    WriteBinByte		equ		WriteHexByte+2
+0028 000c                    WriteString			equ		WriteBinByte+2
+0029 000e                    ReadString			equ		WriteString+2
+0030 0010                    ReadHexFromString	equ		ReadString+2
+0031                         ;	----------------------------------------------------------------------------------------------------
+0032 8000                    					org		RomCartidgeStart		
+0033 8000 44 47              					fcc		"DG"							;	Diagnostic Cartridge Header
+0034                         ;	----------------------------------------------------------------------------------------------------				
+0035                         					
+0036 8002 34 10              Startup:			pshs	x								;	save return address
+0037                         
+0038 8004 10 8e e0 00        					ldy		#MonitorStart                   ;   find adr of functions table
+0039 8008 10 ae 2c                               ldy     OffTableRoutines,y              ;   Y = @ of functions table
+0040 800b 10 ae 2c                               ldy     WriteString,y                	;   add offset to point WriteString
+0041                         										
+0042 800e 8e 80 17           					ldx		#STRExample00					;	string to display
+0043 8011 ad a4              					jsr     0,y						
+0044                         
+0045 8013 35 10              					puls	x								;	restore return address
+0046 8015 6e 84              					jmp		0,x								;	return to the monitor
+0047                         					
+0048 8017 44 69 61 67 6e 6f  STRExample00		fcc     "Diagnostic Cartridge started\015\012\0"					
+     73 74 69 63 20 43
+     61 72 74 72 69 64
+     67 65 20 73 74 61
+     72 74 65 64 0d 0a
+     00
+0049                         ;	----------------------------------------------------------------------------------------------------				
+0050                         
+0051                         				

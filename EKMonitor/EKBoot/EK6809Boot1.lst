@@ -1,0 +1,66 @@
+0001                         ;
+0002                         ;	6809 Boot Code Test 1 for ReadBoard 6809 
+0003                         ;	Created:	2012/01/18	Laurent68k
+0004                         ;	Updated:	2013/01/18
+0005                         ;
+0006                         ;	Execute small init and perform a Sync instruction
+0007                         ;	we must have BA = 1 and BS = 0
+0008                         ;
+0009                         ;	CCR:	7 6 5 4 3 2 1 0
+0010                         ;			E F H I N Z V C
+0011                         ;
+0012                         ;	Change log:
+0013                         ;
+0014                         ;	----------------------------------------------------------------------------------------------------
+0015                         
+0016                         ;	----------------------------------------------------------------------------------------------------
+0017 0000                    RamStart			equ	$0000
+0018 7fff                    RamEnd				equ	$7FFF
+0019 8000                    Cartridge           equ $8000
+0020 e000                    RomStart			equ	$E000
+0021 ffff                    RomEnd				equ	$FFFF
+0022 fff0                    ROMVectors			equ	$FFF0
+0023                         ;	----------------------------------------------------------------------------------------------------
+0024 d000                    Uart				equ	$D000
+0025 d001                    UartTDR				equ Uart+1
+0026 d001                    UartRDR				equ Uart+1
+0027                         ;	----------------------------------------------------------------------------------------------------
+0028                         ;	Start of Boot Code ROM
+0029                         
+0030 e000                    					org		RomStart					
+0031                         								
+0032                         BootCode:	
+0033 e000 10 ce 01 00        					lds		#$100
+0034 e004 ce 01 00           					ldu		#$100
+0035                         
+0036                         										
+0037 e007 13                 loop:				sync							;	BA = 1 and BS = 0
+0038 e008 20 fd              					bra	loop
+0039                         					
+0040                         ;	----------------------------------------------------------------------------------------------------
+0041                         
+0042 e00a 3b                 Vector:             rti
+0043                         
+0044 e00b 4c 41 55 52 45 4e  marque:				fcc "LAURENT BOOTCODE TEST #1, 20130201"
+     54 20 42 4f 4f 54
+     43 4f 44 45 20 54
+     45 53 54 20 23 31
+     2c 20 32 30 31 33
+     30 32 30 31
+0045                         ;	----------------------------------------------------------------------------------------------------
+0046 e02d                    					spaceto ROMVectors				; special LFD directive: fill from last PC = * to here 
+0047 fff0                    					org	ROMVectors
+0048                         
+0049                         Vectors:			
+0050 fff0 e0 0a              					fdb	Vector		
+0051 fff2 e0 0a              					fdb	Vector
+0052 fff4 e0 0a              					fdb	Vector
+0053 fff6 e0 0a              					fdb	Vector
+0054 fff8 e0 0a              					fdb	Vector
+0055 fffa e0 0a              					fdb	Vector
+0056 fffc e0 0a              					fdb	Vector
+0057 fffe e0 00              					fdb	RomStart            
+0058                         
+0059                         					end
+0060                         ;	----------------------------------------------------------------------------------------------------
+0061                         
